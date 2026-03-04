@@ -51,6 +51,7 @@ func initPlugins() {
 		plugins.NewMakeCarousel(),
 		plugins.NewPostStore(),
 		plugins.NewDidiAuto(),
+		plugins.NewGnDownSpider(),
 	)
 
 }
