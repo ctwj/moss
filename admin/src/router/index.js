@@ -5,7 +5,7 @@ import {t} from "@/locale";
 import {computed} from 'vue'
 
 const router = createRouter({
-    history: createWebHistory(process.env.NODE_ENV === "production" ? "/{{__DIR__}}" : "/"),
+    history: createWebHistory(process.env.NODE_ENV === "production" ? "/{{__DIR__}}" : "/admin"),
     routes
 })
 

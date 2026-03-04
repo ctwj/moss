@@ -5,13 +5,88 @@ version: '3'
 tasks:
   
   run:
+    desc: "启动后端服务（无热重载）"
     cmds:
       - cd ./main/tmp && go run ../cmd/web/main.go
     silent: true
 
   admin:
+    desc: "启动前端开发服务器"
     cmds:
       - cd ./admin && npm run dev
+
+  dev:
+    desc: "启动完整开发环境（前后端热重载）"
+    cmds:
+      - echo "🚀 启动 Moss 完整开发环境..."
+      - echo "🔧 后端 (Go): http://localhost:9008"
+      - echo "🎨 前端 (Vue): http://localhost:3000/admin/"
+      - echo "🌐 网站前台: http://moss.l9.lc/"
+      - echo "📊 管理后台: http://moss.l9.lc/admin"
+      - echo "📝 查看日志: task logs"
+      - task: dev-backend
+      - task: dev-frontend
+
+  dev-backend:
+    desc: "启动后端热重载开发服务器"
+    cmds:
+      - cd ./main && air
+    silent: false
+    background: true
+
+  dev-frontend:
+    desc: "启动前端开发服务器"
+    cmds:
+      - cd ./admin && npm run dev
+    silent: false
+    background: true
+
+  logs:
+    desc: "查看开发日志"
+    cmds:
+      - echo "=== Nginx 访问日志 (最近10行) ==="
+      - tail -10 /www/wwwlogs/moss.l9.lc.log 2>/dev/null || echo "日志文件不存在"
+      - echo ""
+      - echo "=== Nginx 错误日志 (最近10行) ==="
+      - tail -10 /www/wwwlogs/moss.l9.lc.error.log 2>/dev/null || echo "错误日志文件不存在"
+
+  logs-tail:
+    desc: "实时查看Nginx日志"
+    cmds:
+      - echo "正在实时查看Nginx日志，按Ctrl+C退出..."
+      - tail -f /www/wwwlogs/moss.l9.lc.log
+
+  status:
+    desc: "检查开发环境状态"
+    cmds:
+      - echo "=== 进程状态 ==="
+      - ps aux | grep -E "(air|vite|moss|node.*3000)" | grep -v grep || echo "未找到相关进程"
+      - echo ""
+      - echo "=== 端口监听 ==="
+      - ss -tlnp | grep -E ':(3000|9008|80)' || echo "端口未监听"
+      - echo ""
+      - echo "=== API 健康检查 ==="
+      - curl -s http://localhost:9008/admin/api/admin/exists 2>/dev/null | head -1 || echo "API不可访问"
+      - echo ""
+      - echo "=== 前端健康检查 ==="
+      - curl -s -I http://localhost:3000/admin/ 2>/dev/null | head -1 || echo "前端不可访问"
+
+  restart-nginx:
+    desc: "重载Nginx配置"
+    cmds:
+      - nginx -t && systemctl reload nginx
+      - echo "✅ Nginx配置已重载"
+
+  reset-admin:
+    desc: "重置管理员账户（10分钟内有效）"
+    cmds:
+      - pkill moss 2>/dev/null || true
+      - sleep 1
+      - cd ./main && ./moss --username="admin" --password="admin123" &
+      - echo "✅ 管理员已重置"
+      - echo "   用户名: admin"
+      - echo "   密码: admin123"
+      - echo "⚠️  请在10分钟内使用此账户登录"
 
 
   #############

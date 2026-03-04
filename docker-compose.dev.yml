@@ -1,0 +1,43 @@
+version: '3'
+services:
+  moss-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: moss-dev
+    ports:
+      - "9008:9008"    # 后端服务端口
+      - "5173:5173"    # Vite前端开发服务器端口
+      - "2345:2345"    # Go调试端口（可选）
+    volumes:
+      - .:/app         # 挂载源代码
+      - moss-node-modules:/app/admin/node_modules  # 避免重复安装node_modules
+      - moss-go-modules:/go/pkg/mod                # Go模块缓存
+    working_dir: /app
+    environment:
+      - TZ=Asia/Shanghai
+      - GO_ENV=development
+    # 启动开发环境：同时运行后端和前端
+    command: >
+      sh -c "
+      echo '安装前端依赖...' &&
+      cd /app/admin && npm install --legacy-peer-deps &&
+      echo '安装Go模块...' &&
+      cd /app/main && go mod download &&
+      echo '启动开发环境...' &&
+      echo '1. 后端: http://localhost:9008' &&
+      echo '2. 前端: http://localhost:5173' &&
+      echo '3. 后台: http://localhost:9008/admin' &&
+      echo '运行 task run & task admin...' &&
+      cd /app &&
+      (task run &) &&
+      (task admin &) &&
+      echo '开发环境已启动！按Ctrl+C停止' &&
+      tail -f /dev/null
+      "
+    # 或者使用以下命令分别启动：
+    # command: sleep infinity  # 然后手动进入容器执行 task run 和 task admin
+
+volumes:
+  moss-node-modules:
+  moss-go-modules:

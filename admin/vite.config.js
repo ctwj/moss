@@ -6,13 +6,13 @@ import tailwindcss from 'tailwindcss'
 import autoprefixer from 'autoprefixer'
 
 export default defineConfig({
-  base: process.env.NODE_ENV === "production" ? "/{{__DIR__}}/" : "/",
+  base: process.env.NODE_ENV === "production" ? "/{{__DIR__}}/" : "/admin/",
   server:{
     host:"0.0.0.0",
     port:3000,
     proxy:{
       '/admin/api': {
-        target: 'http://127.0.0.1:8989/',
+        target: 'http://127.0.0.1:9008/',
         changeOrigin: true,
       },
     },
