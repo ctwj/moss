@@ -10,12 +10,30 @@ import (
 	"moss/infrastructure/general/message"
 	"moss/infrastructure/support/log"
 	"moss/infrastructure/support/template"
+	"strings"
 )
 
 func HomeIndex(ctx *fiber.Ctx) error {
 	b, err := appService.Render.Index()
 	if err != nil {
 		log.Error("index controller failed", log.Err(err))
+		return ctx.SendStatus(500)
+	}
+	return ctx.Type("html", "utf-8").SendString(string(b))
+}
+
+func HomeSearch(ctx *fiber.Ctx) error {
+	keyword := strings.TrimSpace(ctx.Query("keyword"))
+	if keyword == "" {
+		return ctx.Redirect("/", fiber.StatusTemporaryRedirect)
+	}
+	page := ctx.QueryInt("page", 1)
+	if page <= 0 {
+		page = 1
+	}
+	b, err := appService.Render.Search(keyword, page)
+	if err != nil {
+		log.Error("search controller failed", log.Err(err))
 		return ctx.SendStatus(500)
 	}
 	return ctx.Type("html", "utf-8").SendString(string(b))

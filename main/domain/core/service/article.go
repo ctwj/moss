@@ -269,6 +269,15 @@ func (s *ArticleService) ListAfterCreateTime(ctx *context.Context, t int64) (res
 	return
 }
 
+func (s *ArticleService) ListByKeyword(ctx *context.Context, keyword string) (res []entity.ArticleBase, err error) {
+	if keyword == "" {
+		return
+	}
+	res, err = repository.Article.ListByKeyword(ctx, keyword)
+	s.listAfterEvents(res)
+	return
+}
+
 func (s *ArticleService) ListByTagID(ctx *context.Context, tagID int) (res []entity.ArticleBase, err error) {
 	return s.ListByTagIds(ctx, []int{tagID})
 }
@@ -313,6 +322,13 @@ func (s *ArticleService) CountByCategoryID(categoryID int) (int64, error) {
 
 func (s *ArticleService) CountByWhere(where *context.Where) (res int64, err error) {
 	return repository.Article.CountByWhere(where)
+}
+
+func (s *ArticleService) CountByKeyword(keyword string) (res int64, err error) {
+	if keyword == "" {
+		return
+	}
+	return repository.Article.CountByKeyword(keyword)
 }
 
 // CountTotal 统计文章总数

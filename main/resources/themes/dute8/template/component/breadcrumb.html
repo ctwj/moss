@@ -1,0 +1,17 @@
+{{ block breadcrumb(id) }}
+    {{ list := Widget.Breadcrumb(id) }}
+    {{ if len(list) == 0}}
+        {{ list = Category().GetWithParent(id)}}
+    {{end}}
+    {{ listLen := len(list)}}
+    <div class="dute-breadcrumb">
+        <a class="flex items-center" href="/"><i class="mr-1 icon icon-home"></i>{{ Config.Site.Name }}</a>
+        <i class="mx-1 icon icon-right"></i>
+        {{ range i, v := list }}
+            <a class="{{ if i+1 == listLen }}dute-crumb-current{{ end }} truncate" href="{{v.URL()}}">{{v.Name}}</a>
+            {{ if i+1 < listLen }}
+                <i class="mx-1 icon icon-right"></i>
+            {{ end }}
+        {{ end }}
+    </div>
+{{ end }}

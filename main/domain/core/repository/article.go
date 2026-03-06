@@ -202,6 +202,23 @@ func (r *ArticleRepo) ListBeforeCreateTime(ctx *context.Context, t int64) (res [
 	return
 }
 
+func (r *ArticleRepo) ListByKeyword(ctx *context.Context, keyword string) (res []entity.ArticleBase, err error) {
+	like := "%" + keyword + "%"
+	err = db.DB.Model(&entity.ArticleBase{}).
+		Where("title like ? or description like ?", like, like).
+		Scopes(gormx.Context(ctx)).
+		Find(&res).Error
+	return
+}
+
+func (r *ArticleRepo) CountByKeyword(keyword string) (res int64, err error) {
+	like := "%" + keyword + "%"
+	err = db.DB.Model(&entity.ArticleBase{}).
+		Where("title like ? or description like ?", like, like).
+		Count(&res).Error
+	return
+}
+
 // ListDetail 调用详情表文章列表
 func (r *ArticleRepo) ListDetail(ctx *context.Context) (res []entity.ArticleDetail, err error) {
 	err = db.DB.Model(&entity.ArticleDetail{}).Scopes(gormx.Context(ctx)).Find(&res).Error

@@ -43,6 +43,7 @@ export default {
     createTime:'Create Time',
     content:'Content',
     extends:'Extends',
+    res:'Resources',
     add:'Add',
     app:'App',
     sql:'SQL',

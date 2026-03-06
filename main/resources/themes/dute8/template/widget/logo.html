@@ -1,0 +1,17 @@
+<div class="dute-logo-wrap">
+    {{ logo := Widget.LogoURL() }}
+    <a href="/" title="{{ Config.Site.Name }}" class="dute-logo-link">
+        {{ if logo != "" }}
+            <img class="dute-logo-img" src="{{logo}}" alt="{{ Config.Site.Name }}" />
+            <span class="dute-logo-text">
+                <strong class="dute-site-name">{{ Config.Site.Name }}</strong>
+                <small class="dute-site-slogan">独特汇聚，玩乐无界</small>
+            </span>
+        {{ else }}
+            <span class="dute-logo-text">
+                <strong class="dute-site-name">{{ Config.Site.Name }}</strong>
+                <small class="dute-site-slogan">独特汇聚，玩乐无界</small>
+            </span>
+        {{ end }}
+    </a>
+</div>

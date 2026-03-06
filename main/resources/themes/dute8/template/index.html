@@ -1,0 +1,73 @@
+{{extends "./layout/layout.html"}}
+{{import "./component/home_recent_list.html"}}
+{{import "./component/home_rank_list.html"}}
+{{import "./component/home_download_grid.html"}}
+{{import "./component/home_zone_list.html"}}
+
+{{block main()}}
+
+    {{ latest := Article().Comment("dute8 latest").Limit(22).List() }}
+    {{ hot := Article().Comment("dute8 hot").Limit(18).PseudorandomList() }}
+    {{ downloadList := Article().Comment("dute8 download").Limit(12).List() }}
+    {{ zoneList := Article().Comment("dute8 zone").Limit(28).List() }}
+    {{ cats := Category().Comment("dute8 categories").Limit(12).List() }}
+    {{ rankList := hot }}
+    {{ if len(rankList) < 11 }}
+    {{ rankList = latest }}
+    {{ end }}
+
+    <div class="dute-home-panel">
+        <div class="dute-home-top">
+            <div class="dute-home-left-col">
+                {{ include "./widget/carousel.html" }}
+
+                <div class="card dute-like-card">
+                    <div class="card-title"><i></i>猜你喜欢</div>
+                    {{yield home_rank_list(list=rankList, limit=8, compact=true)}}
+                </div>
+            </div>
+
+            <div class="dute-home-right-col">
+                <div class="dute-home-right-grid">
+                    <div class="card dute-update-card">
+                        <div class="card-title">
+                            <i></i>最近更新
+                            <span class="dute-title-tip">地址发布页</span>
+                        </div>
+                        {{yield home_recent_list(list=latest, limit=11)}}
+                    </div>
+
+                    <div class="card dute-rank-card">
+                        <div class="card-title"><i></i>热门推荐</div>
+                        {{yield home_rank_list(list=rankList, limit=11)}}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card dute-download-card">
+            <div class="card-title"><i></i>软件下载</div>
+            <div class="dute-mini-tabs">
+                {{ range i, c := cats }}
+                {{ if i < 8 }}
+                <a href="{{ c.URL() }}">{{ c.Name }}</a>
+                {{ end }}
+                {{ end }}
+            </div>
+            {{yield home_download_grid(list=downloadList, limit=12)}}
+        </div>
+
+        <div class="card dute-zone-card">
+            <div class="card-title"><i></i>文章专区</div>
+            <div class="dute-mini-tabs">
+                {{ range i, c := cats }}
+                {{ if i < 10 }}
+                <a href="{{ c.URL() }}">{{ c.Name }}</a>
+                {{ end }}
+                {{ end }}
+            </div>
+            {{yield home_zone_list(list=zoneList, limit=24)}}
+        </div>
+    </div>
+
+{{end}}
