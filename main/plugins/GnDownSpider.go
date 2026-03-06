@@ -6,39 +6,41 @@ import (
 	"errors"
 	"fmt"
 	"github.com/PuerkitoBio/goquery"
+	"github.com/duke-git/lancet/v2/cryptor"
 	"go.uber.org/zap"
 	"moss/domain/core/entity"
 	"moss/domain/core/service"
 	"moss/domain/core/vo"
 	pluginEntity "moss/domain/support/entity"
 	"moss/infrastructure/utils/request"
+	"net/url"
 	"regexp"
 	"strings"
 	"time"
 )
 
 type GnDownSpider struct {
-	SourceURL  string `json:"source_url"`  // 源站URL
-	CategoryID int    `json:"category_id"` // Moss分类ID
-	Interval   string `json:"interval"`    // 采集间隔 (默认 "@every 1h")
-	Proxy      string `json:"proxy"`       // 代理地址
-	Retry      int    `json:"retry"`       // 重试次数
-	Timeout    int    `json:"timeout"`     // 超时秒数
-	Limit      int    `json:"limit"`       // 每次采集数量限制
-	LastUpdate int64  `json:"last_update"` // 上次更新时间戳
+	SourceURL       string `json:"source_url"`       // 源站URL
+	Interval        string `json:"interval"`         // 采集间隔 (默认 "@every 1h")
+	Proxy           string `json:"proxy"`            // 代理地址
+	Retry           int    `json:"retry"`            // 重试次数
+	Timeout         int    `json:"timeout"`          // 超时秒数
+	RequestInterval int    `json:"request_interval"` // 请求间隔(秒)
+	LastUpdate      int64  `json:"last_update"`      // 上次更新时间戳
 
-	ctx     *pluginEntity.Plugin
-	baseURL string
+	ctx           *pluginEntity.Plugin
+	baseURL       string
+	lastRequestAt time.Time
 }
 
 func NewGnDownSpider() *GnDownSpider {
 	return &GnDownSpider{
-		SourceURL:  "https://www.gndown.com",
-		Interval:   "@every 1h",
-		Retry:      2,
-		Timeout:    30,
-		Limit:      20,
-		LastUpdate: 0,
+		SourceURL:       "https://www.gndown.com",
+		Interval:        "@every 1h",
+		Retry:           2,
+		Timeout:         30,
+		RequestInterval: 1,
+		LastUpdate:      0,
 	}
 }
 
@@ -57,25 +59,23 @@ func (g *GnDownSpider) Info() *pluginEntity.PluginInfo {
 
 func (g *GnDownSpider) Load(ctx *pluginEntity.Plugin) error {
 	g.ctx = ctx
-	// 解析基础URL
-	g.baseURL = g.SourceURL
+	// 统一为站点根URL，避免仅采集单个分类路径
+	g.baseURL = g.normalizeBaseURL(g.SourceURL)
 	return nil
 }
 
 func (g *GnDownSpider) Run(ctx *pluginEntity.Plugin) error {
 	g.ctx = ctx
+	g.lastRequestAt = time.Time{}
 	g.ctx.Log.Info("开始采集 gndown.com 文章...")
+	startTime := time.Now()
 
 	collected := 0
 	skipped := 0
 	errors := 0
 
-	// 从第1页开始采集，直到达到限制或没有更多内容
-	for page := 1; page <= 10; page++ { // 最多采集10页
-		if collected >= g.Limit {
-			break
-		}
-
+	// 从第1页开始采集，直到没有更多内容或出现整页已采集
+	for page := 1; ; page++ {
 		pageURL := fmt.Sprintf("%s/page/%d", g.baseURL, page)
 		g.ctx.Log.Info("正在采集页面", zap.String("url", pageURL))
 
@@ -91,26 +91,9 @@ func (g *GnDownSpider) Run(ctx *pluginEntity.Plugin) error {
 			break
 		}
 
+		pageCollected := 0
+		pageSkipped := 0
 		for _, link := range articleLinks {
-			if collected >= g.Limit {
-				break
-			}
-
-			// 检查是否已存在
-			slug := g.extractSlug(link)
-			exists, err := service.Article.ExistsSlug(slug)
-			if err != nil {
-				g.ctx.Log.Error("检查文章存在性失败", zap.String("slug", slug), zap.Error(err))
-				errors++
-				continue
-			}
-
-			if exists {
-				g.ctx.Log.Debug("文章已存在，跳过", zap.String("slug", slug))
-				skipped++
-				continue
-			}
-
 			// 采集文章内容
 			article, err := g.fetchArticle(link)
 			if err != nil {
@@ -119,8 +102,21 @@ func (g *GnDownSpider) Run(ctx *pluginEntity.Plugin) error {
 				continue
 			}
 
+			// 新逻辑：按 title-hash slug 去重，避免多数据源slug冲突
+			existsHash, err := service.Article.ExistsSlug(article.Slug)
+			if err != nil {
+				g.ctx.Log.Error("检查新slug存在性失败", zap.String("slug", article.Slug), zap.Error(err))
+				errors++
+				continue
+			}
+			if existsHash {
+				g.ctx.Log.Debug("文章已存在（新slug），跳过", zap.String("slug", article.Slug))
+				skipped++
+				pageSkipped++
+				continue
+			}
+
 			// 创建文章
-			article.CategoryID = g.CategoryID
 			if err := service.Article.Create(article); err != nil {
 				g.ctx.Log.Error("创建文章失败", zap.String("title", article.Title), zap.Error(err))
 				errors++
@@ -128,7 +124,16 @@ func (g *GnDownSpider) Run(ctx *pluginEntity.Plugin) error {
 			}
 
 			collected++
+			pageCollected++
 			g.ctx.Log.Info("成功采集文章", zap.String("title", article.Title), zap.String("slug", article.Slug))
+		}
+
+		// 如果当前页全部已采集过，说明后续页基本也是历史数据，停止采集
+		if pageCollected == 0 && pageSkipped == len(articleLinks) {
+			g.ctx.Log.Info("当前页全部已采集，停止继续翻页",
+				zap.Int("page", page),
+				zap.Int("page_total", len(articleLinks)))
+			break
 		}
 	}
 
@@ -139,7 +144,7 @@ func (g *GnDownSpider) Run(ctx *pluginEntity.Plugin) error {
 		zap.Int("采集数量", collected),
 		zap.Int("跳过数量", skipped),
 		zap.Int("错误数量", errors),
-		zap.Int64("耗时(秒)", time.Since(time.Unix(g.LastUpdate, 0)).Nanoseconds()/1e9),
+		zap.Int64("耗时(秒)", int64(time.Since(startTime).Seconds())),
 	)
 
 	return nil
@@ -147,6 +152,8 @@ func (g *GnDownSpider) Run(ctx *pluginEntity.Plugin) error {
 
 // 获取文章链接列表
 func (g *GnDownSpider) getArticleLinks(pageURL string) ([]string, error) {
+	g.waitForRequestSlot(pageURL)
+
 	// 发送HTTP请求
 	body, err := request.New().
 		SetRetry(g.Retry).
@@ -163,6 +170,7 @@ func (g *GnDownSpider) getArticleLinks(pageURL string) ([]string, error) {
 		return nil, err
 	}
 
+	seen := make(map[string]struct{})
 	var links []string
 	doc.Find(".excerpt h2 a, .post-list a").Each(func(i int, s *goquery.Selection) {
 		if href, exists := s.Attr("href"); exists {
@@ -171,7 +179,10 @@ func (g *GnDownSpider) getArticleLinks(pageURL string) ([]string, error) {
 				href = g.baseURL + href
 			}
 			if strings.Contains(href, g.baseURL) && strings.HasSuffix(href, ".html") {
-				links = append(links, href)
+				if _, ok := seen[href]; !ok {
+					seen[href] = struct{}{}
+					links = append(links, href)
+				}
 			}
 		}
 	})
@@ -179,9 +190,24 @@ func (g *GnDownSpider) getArticleLinks(pageURL string) ([]string, error) {
 	return links, nil
 }
 
+func (g *GnDownSpider) normalizeBaseURL(raw string) string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return "https://www.gndown.com"
+	}
+
+	u, err := url.Parse(raw)
+	if err != nil || u.Scheme == "" || u.Host == "" {
+		return strings.TrimSuffix(raw, "/")
+	}
+
+	return strings.TrimSuffix(fmt.Sprintf("%s://%s", u.Scheme, u.Host), "/")
+}
+
 // 采集单篇文章
 func (g *GnDownSpider) fetchArticle(articleURL string) (*entity.Article, error) {
 	g.ctx.Log.Info("正在采集文章", zap.String("url", articleURL))
+	g.waitForRequestSlot(articleURL)
 
 	// 发送HTTP请求
 	body, err := request.New().
@@ -208,8 +234,8 @@ func (g *GnDownSpider) fetchArticle(articleURL string) (*entity.Article, error) 
 	}
 	article.Title = title
 
-	// 提取slug
-	slug := g.extractSlug(articleURL)
+	// 提取slug（gndown + 标题 hash）
+	slug := g.buildSlug(title)
 	if slug == "" {
 		return nil, errors.New("无法提取文章slug")
 	}
@@ -230,6 +256,7 @@ func (g *GnDownSpider) fetchArticle(articleURL string) (*entity.Article, error) 
 
 	// 提取封面图片
 	article.Thumbnail = g.extractThumbnail(doc, articleURL)
+	g.ctx.Log.Info("Extracted thumbnail", zap.String("thumbnail", article.Thumbnail), zap.String("articleURL", articleURL))
 
 	// 构建extends字段
 	extends := g.buildExtends(doc, articleURL)
@@ -251,14 +278,13 @@ func (g *GnDownSpider) fetchArticle(articleURL string) (*entity.Article, error) 
 	return article, nil
 }
 
-// 从URL提取slug
-func (g *GnDownSpider) extractSlug(articleURL string) string {
-	parts := strings.Split(articleURL, "/")
-	if len(parts) > 0 {
-		lastPart := parts[len(parts)-1]
-		return strings.TrimSuffix(lastPart, ".html")
+// 生成slug: gndown + 文章标题hash，保证多源采集时slug隔离
+func (g *GnDownSpider) buildSlug(title string) string {
+	title = strings.TrimSpace(strings.ToLower(title))
+	if title == "" {
+		return ""
 	}
-	return ""
+	return "gndown-" + cryptor.Md5String("gndown|"+title)
 }
 
 // 提取文章标题
@@ -366,27 +392,32 @@ func (g *GnDownSpider) extractTime(doc *goquery.Document) int64 {
 	return time.Now().Unix()
 }
 
-// 从meta标签提取描述
+// 从meta标签提取描述 - Twitter优先于OG优先于标准meta
 func (g *GnDownSpider) extractMetaDescription(doc *goquery.Document) string {
-	// 第一步：尝试从meta description提取
-	metaDesc := doc.Find("meta[name='description']").AttrOr("content", "")
-	if metaDesc != "" {
-		return strings.TrimSpace(metaDesc)
+	// 定义描述选择器优先级 - Twitter最优先
+	descSelectors := []string{
+		"meta[name='twitter:description']", // Twitter - 最优先
+		"meta[property='og:description']",  // Open Graph - 次级
+		"meta[name='description']",         // Standard meta - 三级
 	}
 
-	// 第二步：尝试从OG标签提取
-	ogDesc := doc.Find("meta[property='og:description']").AttrOr("content", "")
-	if ogDesc != "" {
-		return strings.TrimSpace(ogDesc)
+	for i, selector := range descSelectors {
+		if desc := doc.Find(selector).AttrOr("content", ""); desc != "" {
+			g.ctx.Log.Info("Found description",
+				zap.Int("priority", i+1),
+				zap.String("selector", selector),
+				zap.String("desc", desc[:min(len(desc), 50)]+"..."))
+			return strings.TrimSpace(desc)
+		}
 	}
 
-	// 第三步：从正文第一段提取
+	// 兜底方案：正文第一段
 	articleContent := doc.Find("article.article-content, .article-content, .entry-content").First()
 	if articleContent.Length() > 0 {
-		// 只从正文区域的第一段提取
 		firstP := articleContent.Find("p").First()
 		if firstP.Length() > 0 {
 			text := strings.TrimSpace(firstP.Text())
+			g.ctx.Log.Info("Using first paragraph as description", zap.String("text", text[:min(len(text), 100)]+"..."))
 			if len(text) > 200 {
 				return text[:200] + "..."
 			}
@@ -394,8 +425,39 @@ func (g *GnDownSpider) extractMetaDescription(doc *goquery.Document) string {
 		}
 	}
 
-	// 兜底：从整个内容提取（避免包含元信息）
-	return g.extractDescriptionFromContent(doc)
+	// 最终兜底：从整个内容提取（避免包含元信息）
+	fallback := g.extractDescriptionFromContent(doc)
+	g.ctx.Log.Warn("Using fallback description extraction", zap.String("desc", fallback[:min(len(fallback), 100)]+"..."))
+	return fallback
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+func (g *GnDownSpider) waitForRequestSlot(targetURL string) {
+	interval := time.Duration(g.effectiveRequestInterval()) * time.Second
+	if interval <= 0 {
+		return
+	}
+	if !g.lastRequestAt.IsZero() {
+		nextAt := g.lastRequestAt.Add(interval)
+		if wait := time.Until(nextAt); wait > 0 {
+			g.ctx.Log.Debug("请求限速等待", zap.Duration("wait", wait), zap.String("url", targetURL))
+			time.Sleep(wait)
+		}
+	}
+	g.lastRequestAt = time.Now()
+}
+
+func (g *GnDownSpider) effectiveRequestInterval() int {
+	if g.RequestInterval <= 0 {
+		return 1
+	}
+	return g.RequestInterval
 }
 
 // 从正文提取描述的兜底方案
@@ -467,33 +529,57 @@ func (g *GnDownSpider) extractKeywords(doc *goquery.Document) string {
 
 // 提取封面图片
 func (g *GnDownSpider) extractThumbnail(doc *goquery.Document, articleURL string) string {
-	// 优先级顺序
+	// 优先级顺序 - Twitter优先于OG
 	selectors := []string{
-		"meta[property='og:image']",         // Open Graph
-		"meta[name='twitter:image']",        // Twitter Card
-		"article.article-content img:first", // 正文第一张图
-		".article-content img:first",        // 内容区域第一张图
-		"img.wp-post-image",                 // WordPress特色图片
-		"img.thumb",                         // 缩略图类
+		"meta[property='twitter:image']",     // Twitter Card - 最优先
+		"meta[property='twitter:image:src']", // Twitter Card 备用
+		"meta[name='twitter:image']",         // 兼容 name 写法
+		"meta[name='twitter:image:src']",     // 兼容 name 写法
+		"meta[property='og:image']",          // Open Graph - 次级
+		"article.article-content img",        // 正文第一张图 - 兜底
 	}
 
-	for _, selector := range selectors {
+	for i, selector := range selectors {
 		if img := doc.Find(selector).First(); img.Length() > 0 {
 			var imageURL string
 			if src, exists := img.Attr("content"); exists { // meta标签
 				imageURL = src
-			} else if src, exists := img.Attr("src"); exists {
-				imageURL = src
+				g.ctx.Log.Info("Found cover image",
+					zap.Int("priority", i+1),
+					zap.String("selector", selector),
+					zap.String("url", imageURL))
 			} else if dataSrc, exists := img.Attr("data-src"); exists {
 				imageURL = dataSrc
+				g.ctx.Log.Info("Found cover image",
+					zap.Int("priority", i+1),
+					zap.String("selector", selector),
+					zap.String("url", imageURL))
+			} else if dataLazySrc, exists := img.Attr("data-lazy-src"); exists {
+				imageURL = dataLazySrc
+				g.ctx.Log.Info("Found cover image",
+					zap.Int("priority", i+1),
+					zap.String("selector", selector),
+					zap.String("url", imageURL))
+			} else if src, exists := img.Attr("src"); exists {
+				imageURL = src
+				g.ctx.Log.Info("Found cover image",
+					zap.Int("priority", i+1),
+					zap.String("selector", selector),
+					zap.String("url", imageURL))
 			}
 
 			if imageURL != "" {
-				return g.convertToAbsoluteURL(imageURL, articleURL)
+				absoluteURL := g.convertToAbsoluteURL(imageURL, articleURL)
+				g.ctx.Log.Info("Successfully extracted cover image",
+					zap.Int("priority", i+1),
+					zap.String("original", imageURL),
+					zap.String("absolute", absoluteURL))
+				return absoluteURL
 			}
 		}
 	}
 
+	g.ctx.Log.Info("No cover image found, using empty thumbnail", zap.String("articleURL", articleURL))
 	return ""
 }
 
@@ -520,10 +606,8 @@ func (g *GnDownSpider) buildExtends(doc *goquery.Document, articleURL string) ma
 		extends["file_size_bytes"] = fileSizeBytes
 	}
 
-	// 提取关键词
-	if keywords := g.extractKeywords(doc); keywords != "" {
-		extends["keywords"] = keywords
-	}
+	// ❌ 移除关键词提取 - 避免与article.Keywords字段重复
+	// keywords已经存储在article.Keywords字段中，不需要在extends中重复
 
 	// 提取版本信息
 	if version := g.extractVersion(doc); version != "" {
@@ -695,29 +779,43 @@ func (g *GnDownSpider) extractOriginalCategory(doc *goquery.Document) string {
 	return ""
 }
 
-// 提取原始分类路径
 // 处理内容中的图片
 func (g *GnDownSpider) processContentImages(content *goquery.Selection) string {
 	// 处理所有图片元素
 	content.Find("img").Each(func(i int, img *goquery.Selection) {
-		// 处理data-src（懒加载图片）
+		// 1. 处理data-src（真正的图片URL）- 最优先
 		if dataSrc, exists := img.Attr("data-src"); exists && dataSrc != "" {
 			img.SetAttr("src", g.convertToAbsoluteURL(dataSrc, ""))
 			img.RemoveAttr("data-src")
+			g.ctx.Log.Debug("Converted data-src to src", zap.String("url", dataSrc))
 		}
-		
-		// 处理普通src
+
+		// 2. 处理已经是绝对路径的src（保持原样）
 		if src, exists := img.Attr("src"); exists && src != "" {
-			absoluteURL := g.convertToAbsoluteURL(src, "")
-			img.SetAttr("src", absoluteURL)
+			// 只转换相对路径，不处理data:协议的占位符
+			if !strings.HasPrefix(src, "data:") && !strings.HasPrefix(src, "http") && !strings.HasPrefix(src, "//") {
+				absoluteURL := g.convertToAbsoluteURL(src, "")
+				img.SetAttr("src", absoluteURL)
+				g.ctx.Log.Debug("Converted relative src", zap.String("url", src), zap.String("absolute", absoluteURL))
+			} else if strings.HasPrefix(src, "//") {
+				// 处理协议相对路径
+				absoluteURL := "https:" + src
+				img.SetAttr("src", absoluteURL)
+				g.ctx.Log.Debug("Converted protocol-relative src", zap.String("url", src), zap.String("absolute", absoluteURL))
+			}
 		}
-		
-		// 确保alt属性存在
+
+		// 3. 确保alt属性存在
 		if alt, exists := img.Attr("alt"); !exists || alt == "" {
 			img.SetAttr("alt", "article image")
 		}
+
+		// 4. 移除懒加载相关的class和属性
+		img.RemoveClass("perfmatters-lazy")
+		img.RemoveAttr("loading")
+		img.RemoveAttr("decoding")
 	})
-	
+
 	html, _ := content.Html()
 	return strings.TrimSpace(html)
 }

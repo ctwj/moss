@@ -3,11 +3,14 @@ package imagex
 import (
 	"bytes"
 	"image"
+	_ "image/gif"
 	"image/jpeg"
+	_ "image/png"
 
 	"github.com/muesli/smartcrop"
 	"github.com/muesli/smartcrop/nfnt"
 	"github.com/nfnt/resize"
+	_ "golang.org/x/image/webp"
 )
 
 // Image 图片处理工具
