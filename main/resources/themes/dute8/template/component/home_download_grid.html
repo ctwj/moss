@@ -1,0 +1,19 @@
+{{ block home_download_grid(list,limit=12) }}
+<div class="dute-download-grid">
+    {{ range i, v := list }}
+    {{ if i < limit }}
+    <article class="dute-download-item">
+        <a class="dute-download-thumb" href="{{ v.URL() }}">
+            {{ if v.Thumbnail != "" }}
+            <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-src="{{ v.Thumbnail }}" alt="{{ v.Title }}">
+            {{ else }}
+            <span>{{ Config.Site.Name }}</span>
+            {{ end }}
+        </a>
+        <h3><a href="{{ v.URL() }}">{{ v.Title }}</a></h3>
+        <p><a href="{{ v.URL() }}">立即下载</a></p>
+    </article>
+    {{ end }}
+    {{ end }}
+</div>
+{{ end }}

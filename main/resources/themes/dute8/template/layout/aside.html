@@ -1,0 +1,130 @@
+{{ if Page.Name == "search" }}
+    {{ hot := Widget.GlobalList() }}
+    {{ rand := Article().Comment("search aside random").Limit(10).PseudorandomList() }}
+    {{ tags := Widget.TagCloud() }}
+    {{ links := Widget.Link() }}
+    {{ cats := Category().Comment("search aside category").Limit(12).List() }}
+
+<div class="dute-aside-search dute-search-sticky">
+    <div class="card">
+        <div class="card-title"><i></i>搜索助手</div>
+        <div class="dute-search-helper">
+            <p>关键词：{{ Data.Keyword }}</p>
+            <p>结果数：{{ Data.Count }}</p>
+            <form action="/search" method="get">
+                <input type="text" name="keyword" placeholder="换个关键词试试" value="{{ Data.Keyword }}">
+                <button type="submit">重新搜索</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-title"><i></i>热门推荐</div>
+        <ul class="dute-stack-media">
+            {{ range i, v := hot }}
+            {{ if i < 8 }}
+            <li>
+                <a class="thumb" href="{{v.URL()}}">
+                    {{ if v.Thumbnail != "" }}
+                    <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-src="{{ v.Thumbnail }}" alt="{{ v.Title }}">
+                    {{ else }}
+                    <span>No Img</span>
+                    {{ end }}
+                </a>
+                <div class="text">
+                    <a href="{{v.URL()}}">{{v.Title}}</a>
+                    <time>{{ v.CreateTimeFormat("01-02") }}</time>
+                </div>
+            </li>
+            {{ end }}
+            {{ end }}
+        </ul>
+    </div>
+
+    <div class="card">
+        <div class="card-title"><i></i>随机推荐</div>
+        <ul class="dute-stack-media">
+            {{ range i, v := rand }}
+            {{ if i < 8 }}
+            <li>
+                <a class="thumb" href="{{v.URL()}}">
+                    {{ if v.Thumbnail != "" }}
+                    <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-src="{{ v.Thumbnail }}" alt="{{ v.Title }}">
+                    {{ else }}
+                    <span>No Img</span>
+                    {{ end }}
+                </a>
+                <div class="text">
+                    <a href="{{v.URL()}}">{{v.Title}}</a>
+                    <time>{{ v.CreateTimeFormat("01-02") }}</time>
+                </div>
+            </li>
+            {{ end }}
+            {{ end }}
+        </ul>
+    </div>
+
+    <div class="card">
+        <div class="card-title"><i></i>分类导航</div>
+        <ul class="dute-stack-plain">
+            {{ range i, v := cats }}
+            <li><a href="{{v.URL()}}">{{v.Name}}</a></li>
+            {{ end }}
+        </ul>
+    </div>
+
+    <div class="card">
+        <div class="card-title"><i></i>标签云</div>
+        <ul class="tags text-sm pt-2">
+            {{ range i, v := tags }}
+            <li><a href="{{v.URL()}}">{{v.Name}}</a></li>
+            {{ end }}
+        </ul>
+    </div>
+
+    <div class="card">
+        <div class="card-title"><i></i>友情链接</div>
+        <ul class="dute-stack-plain">
+            {{ range i, v := links }}
+            {{ if i < 12 }}
+            <li><a href="{{v.URL}}" target="_blank" rel="noopener">{{v.Name}}</a></li>
+            {{ end }}
+            {{ end }}
+        </ul>
+    </div>
+</div>
+{{ else }}
+<div class="card">
+    <div class="card-title"><i></i>热门推荐</div>
+    <ul class="dute-side-list">
+        {{ range i, v := Widget.GlobalList() }}
+        <li><a href="{{v.URL()}}">{{v.Title}}</a></li>
+        {{ end }}
+    </ul>
+</div>
+
+<div class="card">
+    <div class="card-title"><i></i>标签云</div>
+    <ul class="tags text-sm pt-2">
+        {{ range i, v := Widget.TagCloud() }}
+        <li><a href="{{v.URL()}}">{{v.Name}}</a></li>
+        {{ end }}
+    </ul>
+</div>
+
+<div class="card">
+    <div class="card-title"><i></i>随机文章</div>
+    <ul class="dute-side-list">
+        {{ range i, v := Article().Comment("aside random").Limit(10).PseudorandomList() }}
+        <li><a href="{{v.URL()}}">{{v.Title}}</a></li>
+        {{ end }}
+    </ul>
+</div>
+
+{{ if Page.Name == "index"}}
+<div class="card hidden lg:block">
+    <div class="card-title"><i></i>友情链接</div>
+    {{ include "../widget/link.html" }}
+</div>
+{{ end }}
+{{ end }}

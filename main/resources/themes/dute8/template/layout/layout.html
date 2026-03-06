@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html x-data="data($refs)" x-init="init($data)" class="dute-theme">
+  <head>
+    <meta charset="utf-8">
+    <meta name="applicable-device" content="pc,mobile">
+    <meta name="renderer" content="webkit">
+    <meta http-equiv="X-UA-Compatible" content="IE=10,chrome=1">
+    <meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no,minimal-ui">
+    <meta name="apple-mobile-web-app-title" content="{{ Config.Site.Name }}">
+    {{ if Page.Description !="" }}
+    <meta name="description" content="{{Page.Description}}">
+    {{ end }}
+    {{ if Page.Keywords !="" }}
+    <meta name="keywords" content="{{Page.Keywords}}">
+    {{ end }}
+    {{ if Page.Title !="" }}
+    <title>{{ Page.Title }}</title>
+    {{ end }}
+    <link href="/style.css" rel="stylesheet" type="text/css" />
+    {{ Config.Template.Head |raw }}
+  </head>
+  <body class="dute-page-{{ Page.Name }}" :class="{'h-screen overflow-hidden':showDrawer}" x-cloak>
+    <div class="container dute-shell">
+      {{ include "./header.html" }}
+
+      <div class="dute-main-wrap{{ if Page.Name == `index` }} dute-main-wrap-index{{ end }}">
+        <main class="dute-main">
+          {{yield main()}}
+        </main>
+        {{ if Page.Name != `index` }}
+        <aside class="dute-aside">
+          {{ include "./aside.html" }}
+        </aside>
+        {{ end }}
+      </div>
+
+      <footer class="dute-footer">
+        {{ links := Widget.Link() }}
+        {{ cats := Category().Comment("dute8 footer category").Limit(14).List() }}
+        <div class="dute-footer-links">
+          <strong>友情链接</strong>
+          <div class="dute-footer-link-items">
+            {{ if len(links) > 0 }}
+              {{ range i, v := links }}
+                {{ if i < 18 }}
+                <a href="{{ v.URL }}" target="_blank" rel="noopener">{{ v.Name }}</a>
+                {{ end }}
+              {{ end }}
+            {{ else }}
+              <span>暂无友情链接</span>
+            {{ end }}
+          </div>
+        </div>
+        <div class="dute-footer-menu">
+          {{ if len(cats) > 0 }}
+            {{ range i, c := cats }}
+              {{ if i < 10 }}
+              <a href="{{ c.URL() }}">{{ c.Name }}</a>
+              {{ end }}
+            {{ end }}
+          {{ end }}
+          <a href="/about.html">关于本站</a>
+          <a href="/custom.html">自定义页面</a>
+          <a href="{{ Config.Router.GetSitemapPath() }}/article.xml">sitemap</a>
+        </div>
+        <div class="dute-footer-runtime">
+          <span>本站已稳定运行：</span>
+          <strong id="dute-uptime" data-start="{{ Utils.AppStartUnix() }}"></strong>
+        </div>
+        <div class="dute-footer-inner">
+          <span class="dute-footer-copy">{{ Config.Template.Footer |raw }}</span>
+          <span class="dute-footer-meta">Theme by Dute8</span>
+        </div>
+      </footer>
+    </div>
+
+    <script defer src="/alpinejs.3.11.1.min.js"></script>
+    <script src="/blazy.min.js"></script>
+    <script>
+      new Blazy({ selector: "img" });
+
+      function data($refs) {
+        return {
+          showDrawer: false,
+          nav: $refs.nav,
+          menu: $refs.menu,
+          headFixed: false
+        };
+      }
+
+      function init(data) {
+        window.onscroll = function () {
+          data.headFixed = document.documentElement.scrollTop > 80;
+        };
+      }
+
+      document.querySelectorAll("[x-cloak]").forEach(function (element) {
+        element.removeAttribute("x-cloak");
+      });
+
+      (function () {
+        var el = document.getElementById("dute-uptime");
+        if (!el) return;
+        var startTs = Number(el.getAttribute("data-start"));
+        if (!startTs || Number.isNaN(startTs)) return;
+
+        function tick() {
+          var now = Math.floor(Date.now() / 1000);
+          var diff = Math.max(0, now - startTs);
+          var day = Math.floor(diff / 86400);
+          var hour = Math.floor((diff % 86400) / 3600);
+          var min = Math.floor((diff % 3600) / 60);
+          var sec = diff % 60;
+          el.textContent = day + " 天 " + hour + " 小时 " + min + " 分 " + sec + " 秒";
+        }
+
+        tick();
+        window.setInterval(tick, 1000);
+      })();
+    </script>
+  </body>
+</html>

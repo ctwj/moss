@@ -1,0 +1,61 @@
+{{extends "./layout/layout.html"}}
+{{import "./component/pagination.html" }}
+
+{{block main()}}
+<div class="card dute-search-page">
+    <div class="dute-search-breadcrumb">
+        <a href="/">首页</a>
+        <span>/</span>
+        <span>"{{ Data.Keyword }}" 的搜索结果</span>
+    </div>
+
+    <h1 class="dute-search-title">
+        搜索：{{ Data.Keyword }}
+        <small>共 {{ Data.Count }} 条</small>
+    </h1>
+
+    {{ if len(Data.List) > 0 }}
+    <div class="dute-search-grid">
+        {{ range i, v := Data.List }}
+        <article class="dute-search-item">
+            <a class="dute-search-thumb" href="{{ v.URL() }}">
+                {{ if v.Thumbnail != "" }}
+                <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-src="{{ v.Thumbnail }}" alt="{{ v.Title }}">
+                {{ else }}
+                <span>{{ Config.Site.Name }}</span>
+                {{ end }}
+            </a>
+            <div class="dute-search-body">
+                <h2><a href="{{ v.URL() }}">{{ v.Title }}</a></h2>
+                {{ if v.Description != "" }}
+                <p>{{ v.Description }}</p>
+                {{ end }}
+                <div class="dute-search-meta">
+                    {{ if v.CreateTime > 0 }}
+                    <time>{{ v.CreateTimeFormat("2006-01-02") }}</time>
+                    {{ end }}
+                    {{ if v.Views > 0 }}
+                    <span>{{ v.Views }} 阅读</span>
+                    {{ end }}
+                </div>
+            </div>
+        </article>
+        {{ end }}
+    </div>
+
+    {{yield pagination(pageTotal=Data.PageTotal, existNextPage=Data.ExistNextPage, disableCount=Data.DisableCount, count=Data.Count)}}
+    {{ else }}
+    <div class="dute-search-empty">
+        <h3>没有找到相关内容</h3>
+        <p>请尝试更换关键词，例如：软件名、版本号或分类词。</p>
+    </div>
+    {{ end }}
+</div>
+
+<script>
+    (function () {
+        var input = document.querySelector('.dute-header-search input[name="keyword"]');
+        if (input) input.value = "{{ Data.Keyword }}";
+    })();
+</script>
+{{end}}

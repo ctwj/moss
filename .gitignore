@@ -91,4 +91,5 @@ conf.toml
 main/moss.db*
 main/moss.db-*
 main/themes/
+main/public/
 nginx-moss-dev.conf            # 本地Nginx配置示例

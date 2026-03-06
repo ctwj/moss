@@ -1,0 +1,31 @@
+{{ block article_list(list,titleTag="h2") }}
+    <div class="dute-post-list">
+        {{ range i, v := list }}
+        <div class="list-item dute-post-item">
+            {{ if v.Thumbnail !="" }}
+            <div class="thumbnail">
+                <a href="{{ v.URL() }}">
+                    <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-src="{{ v.Thumbnail }}" alt="{{ v.Title }}" />
+                </a>
+            </div>
+            {{ end }}
+            <div class="{{ if v.Thumbnail !=`` }}col-span-12 md:col-span-8 xl:col-span-9{{else}}col-span-12{{end}} flex items-center dute-post-content">
+                <div class="w-full">
+                    <{{titleTag}} class="title"><a href="{{ v.URL() }}">{{ v.Title }}</a></{{titleTag}}>
+                    {{ if v.Description !=""}}
+                    <div class="description">{{ v.Description }} </div>
+                    {{ end }}
+                    <div class="meta">
+                        {{ if v.CreateTime > 0 }}
+                        <div><i class="mr-1 icon icon-time"></i>{{ v.CreateTimeFormat("2006-01-02") }}</div>
+                        {{ end }}
+                        {{ if v.Views > 0 }}
+                        <div><i class="mr-1 icon icon-view"></i>{{ v.Views }}</div>
+                        {{ end }}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {{ end }}
+    </div>
+{{ end }}

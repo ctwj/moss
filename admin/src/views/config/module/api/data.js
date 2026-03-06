@@ -33,6 +33,7 @@ function articlePayload(t){
         {field:'tags',type: '[]string',description: $t('tags'), example:"['tag1','tag2','tag3']"},
         {field:'category_name',type: 'string',description: $t('category') + ' (If the category id is undefined)'},
         {field:'extends',type:'json',description:$t('extends'), example:"{'source':'google.com','author':'Lucy'}"},
+        {field:'res',type:'json',description:$t('res'), example:"[{'key':'download','value':'https://example.com/file.zip'}]"},
     ]
     if(t==='update') res.unshift({field:'id',type:'int',required:true,description:$t('id')})
     return res
@@ -138,6 +139,7 @@ function storePayload(t){
         {field:'description',type:'string',description:$t('description')},
         {field:'keywords',type:'string',description:$t('keywords')},
         {field:'extends',type:'json',description:$t('extends'), example:"{'source':'google.com','author':'Lucy'}"},
+        {field:'res',type:'json',description:$t('res'), example:"[{'key':'download','value':'https://example.com/file.zip'}]"},
     ]
     if(t==='update') res.unshift({field:'id',type:'int',required:true,description:$t('id')})
     return res

@@ -42,6 +42,7 @@ func StoreToArticlePost(item *entity.Store) *aggregate.ArticlePost {
 				Keywords: item.Keywords,
 				Content:  item.Content,
 				Extends:  item.Extends,
+				Res:      item.Res,
 			},
 		},
 		Tags:         item.Tags,

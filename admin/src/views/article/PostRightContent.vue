@@ -48,7 +48,7 @@
       <a-date-picker class="w-full input" style="background-color: var(--color-bg-5);"  v-model="createTime" value-format="timestamp" show-time @change="(val)=>record.create_time =parseInt(val / 1000)" />
     </a-form-item>
 
-    <a-collapse expand-icon-position="right" :default-active-key="['extends']">
+    <a-collapse expand-icon-position="right" :default-active-key="['extends', 'res']">
       <a-collapse-item :header="$t('extends')" key="extends" style="background: transparent">
         <a-form :model="record" :label-col-props="{span: 8}" :wrapper-col-props="{span: 16}">
           <a-form-item v-for="(item,index) in record.extends" :label-col-style="{paddingRight:'10px'}">
@@ -62,6 +62,23 @@
           </a-form-item>
         </a-form>
         <a-button size="mini" long @click="addExtends">
+          <template #icon><icon-plus /></template>{{$t('add')}}
+        </a-button>
+      </a-collapse-item>
+
+      <a-collapse-item :header="$t('res')" key="res" style="background: transparent">
+        <a-form :model="record" :label-col-props="{span: 8}" :wrapper-col-props="{span: 16}">
+          <a-form-item v-for="(item,index) in record.res" :label-col-style="{paddingRight:'10px'}">
+            <template #label>
+              <div class="flex">
+                <a-input class="input input_extends" v-model="item.key" /><span class="ml-2">:</span>
+              </div>
+            </template>
+            <a-textarea class="input input_extends" :auto-size="{minRows:1,maxRows:5}" v-model="item.value" />
+            <a-button class="ml-1" type="text" @click="record.res.splice(index,1)"><template #icon><icon-close-circle :stroke-width="3" /></template></a-button>
+          </a-form-item>
+        </a-form>
+        <a-button size="mini" long @click="addRes">
           <template #icon><icon-plus /></template>{{$t('add')}}
         </a-button>
       </a-collapse-item>
@@ -86,6 +103,11 @@
   function addExtends(){
     if(!record.value.extends) record.value.extends = []
     record.value.extends.push({key:'',value:''})
+  }
+
+  function addRes(){
+    if(!record.value.res) record.value.res = []
+    record.value.res.push({key:'',value:''})
   }
 
   const slugURL = computed(()=> useAppendSiteURL(store, store.config.router.article_rule.replace('{slug}', record.value.slug)))

@@ -1,0 +1,31 @@
+{{ block home_stream_list(list,limit=20) }}
+<div class="dute-stream-list">
+    {{ range i, v := list }}
+    {{ if i < limit }}
+    <article class="dute-stream-item">
+        <a class="dute-stream-thumb" href="{{ v.URL() }}">
+            {{ if v.Thumbnail != "" }}
+            <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-src="{{ v.Thumbnail }}" alt="{{ v.Title }}" />
+            {{ else }}
+            <span class="dute-stream-no-thumb">{{ Config.Site.Name }}</span>
+            {{ end }}
+        </a>
+        <div class="dute-stream-content">
+            <h2><a href="{{ v.URL() }}">{{ v.Title }}</a></h2>
+            {{ if v.Description != "" }}
+            <p>{{ v.Description }}</p>
+            {{ end }}
+            <div class="dute-stream-meta">
+                {{ if v.CreateTime > 0 }}
+                <time><i class="mr-1 icon icon-time"></i>{{ v.CreateTimeFormat("2006-01-02") }}</time>
+                {{ end }}
+                {{ if v.Views > 0 }}
+                <span><i class="mr-1 icon icon-view"></i>{{ v.Views }}</span>
+                {{ end }}
+            </div>
+        </div>
+    </article>
+    {{ end }}
+    {{ end }}
+</div>
+{{ end }}

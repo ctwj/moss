@@ -29,6 +29,8 @@ func (r *Router) RegisterHome(route fiber.Router) {
 
 	// home
 	route.Get("/", middleware.Cache, middleware.MinifyCode, controller.HomeIndex).Name("home")
+	// search (no cache: keyword in query string)
+	route.Get("/search", middleware.MinifyCode, controller.HomeSearch).Name("search")
 
 	// static路由应当放到  template page路由前面
 	// 否则不能正确响应文件的content-Type

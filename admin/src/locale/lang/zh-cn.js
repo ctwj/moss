@@ -42,6 +42,7 @@ export default {
     createTime:'创建时间',
     content:'内容',
     extends:'扩展',
+    res:'资源',
     add:'添加',
     app:'应用',
     sql:'查询',

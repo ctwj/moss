@@ -1,0 +1,24 @@
+{{ menu := Widget.Menu()}}
+{{ menuLen := len(menu) }}
+
+{{ if menuLen > 0}}
+    <nav x-ref="menu" class="dute-menu">
+        {{ range i, v := menu }}
+            {{ current := false}}
+            {{if Page.Name==`category` && (Data.ID == v.ID || Data.ParentID == v.ID)}}{{current = true}}{{end}}
+            {{if Page.Name==`article` && Data.CategoryID == v.ID}}{{current = true}}{{end}}
+            <div class="nav-item{{if current}} current{{end}}" x-data="{ show: false }" @mouseleave="show = false" @mouseover="show = true">
+                <h2><a href="{{v.URL()}}">{{v.Name}}</a></h2>
+                {{ if len(v.Children) > 0}}
+                <div class="nav-sub" x-show="showDrawer || show" x-cloak>
+                    <ul>
+                        {{ range i, s := v.Children }}
+                        <li><a href="{{s.URL()}}">{{s.Name}}</a></li>
+                        {{ end }}
+                    </ul>
+                </div>
+                {{ end }}
+            </div>
+        {{ end }}
+    </nav>
+{{ end }}

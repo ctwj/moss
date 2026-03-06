@@ -2,6 +2,7 @@ package utils
 
 import (
 	"github.com/duke-git/lancet/v2/random"
+	"moss/infrastructure/general/constant"
 	"time"
 )
 
@@ -29,6 +30,10 @@ func (*Utils) RandInt(min int, max int) int {
 
 func (*Utils) UUID() (string, error) {
 	return random.UUIdV4()
+}
+
+func (*Utils) AppStartUnix() int64 {
+	return constant.AppStartTime.Unix()
 }
 
 func FormatTimestamp(ts int64, layout string) string {

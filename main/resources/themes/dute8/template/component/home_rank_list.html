@@ -1,0 +1,33 @@
+{{ block home_rank_list(list,limit=10,compact=false) }}
+<ul class="dute-rank-list{{ if compact }} dute-rank-list-compact{{ end }}">
+    {{ range i, v := list }}
+    {{ if i < limit }}
+    {{ rank := i + 1 }}
+    <li>
+        {{ if not compact }}
+        <span class="dute-rank-no">TOP{{ rank }}</span>
+        {{ end }}
+        <a class="dute-rank-thumb" href="{{ v.URL() }}">
+            {{ if v.Thumbnail != "" }}
+            <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-src="{{ v.Thumbnail }}" alt="{{ v.Title }}">
+            {{ else }}
+            <span>No Img</span>
+            {{ end }}
+        </a>
+        <div class="dute-rank-main">
+            <h3><a href="{{ v.URL() }}">{{ v.Title }}</a></h3>
+            {{ if not compact }}
+            <p>{{ v.CreateTimeFormat("01-02") }}</p>
+            {{ end }}
+        </div>
+    </li>
+    {{ end }}
+    {{ end }}
+</ul>
+{{ if not compact }}
+<div class="dute-fake-page">
+    <button type="button">上一页</button>
+    <button type="button">下一页</button>
+</div>
+{{ end }}
+{{ end }}

@@ -21,6 +21,7 @@ type Store struct {
 	Keywords     string         `gorm:"type:varchar(250);default:''"  json:"keywords"`
 	Content      string         `gorm:"type:string"                   json:"content"`
 	Extends      vo.Extends     `gorm:"type:string"                   json:"extends"`
+	Res          vo.Extends     `gorm:"type:string"                   json:"res"`
 	Tags         vo.StringArray `gorm:"type:text;"                    json:"tags"`          // 直接创建tags
 	CategoryName string         `gorm:"type:varchar(250);default:''"  json:"category_name"` // 直接通过分类名创建，优先级小于category_id
 	CreateTime   int64          `gorm:"type:int;size:32"              json:"create_time"`

@@ -1,0 +1,23 @@
+{{ block home_recent_list(list,limit=10) }}
+<ul class="dute-recent-list">
+    {{ range i, v := list }}
+    {{ if i < limit }}
+    <li>
+        <div class="dute-recent-title">
+            <a href="{{ v.URL() }}">{{ v.Title }}</a>
+        </div>
+        <div class="dute-recent-meta">
+            {{ if v.CreateTime > 0 }}
+            <time>{{ v.CreateTimeFormat("01-02") }}</time>
+            {{ end }}
+            <a href="{{ v.URL() }}">查看</a>
+        </div>
+    </li>
+    {{ end }}
+    {{ end }}
+</ul>
+<div class="dute-fake-page">
+    <button type="button">上一页</button>
+    <button type="button">下一页</button>
+</div>
+{{ end }}

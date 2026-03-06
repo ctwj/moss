@@ -1,0 +1,29 @@
+<header class="dute-header">
+    <div class="dute-topbar">
+        <div class="dute-topbar-inner" x-ref="nav">
+            <a href="/">首页</a>
+            <a href="/about.html">关于本站</a>
+            <a href="/custom.html">自定义页面</a>
+        </div>
+    </div>
+
+    <div class="dute-header-main">
+        {{ include "../widget/logo.html" }}
+        {{ include "../widget/nav.html" }}
+        <div class="dute-header-search">
+            <form action="/search" method="get">
+                <input type="text" name="keyword" placeholder="输入关键字搜索" autocomplete="off">
+                <button type="submit" aria-label="搜索">搜</button>
+            </form>
+        </div>
+        <div class="dute-mobile-actions">
+            <div class="cursor-pointer icon icon-menu" x-on:click="showDrawer = true"></div>
+        </div>
+    </div>
+</header>
+
+<div x-show="showDrawer" x-on:click="showDrawer = false" class="fixed z-50 inset-0 w-full h-full bg-black bg-opacity-60 drawer" x-cloak>
+    <div class="absolute right-0 h-full p-4 overflow-auto bg-white dute-drawer-panel">
+        <div x-html="menu?.innerHTML || ''" class="grid grid-cols-1 divide-y divide-gray-200"></div>
+    </div>
+</div>

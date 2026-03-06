@@ -1,0 +1,33 @@
+{{ block home_zone_list(list,limit=24) }}
+<div class="dute-zone-layout">
+    <div class="dute-zone-pics">
+        {{ range i, v := list }}
+        {{ if i < 6 }}
+        <a class="dute-zone-pic-item" href="{{ v.URL() }}">
+            {{ if v.Thumbnail != "" }}
+            <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-src="{{ v.Thumbnail }}" alt="{{ v.Title }}">
+            {{ else }}
+            <span>{{ v.Title }}</span>
+            {{ end }}
+        </a>
+        {{ end }}
+        {{ end }}
+    </div>
+
+    <div class="dute-zone-text">
+        {{ range i, v := list }}
+        {{ if i >= 6 && i < limit }}
+        <article>
+            <h3><a href="{{ v.URL() }}">{{ v.Title }}</a></h3>
+            <div class="dute-zone-meta">
+                {{ if v.CreateTime > 0 }}
+                <time>{{ v.CreateTimeFormat("01-02") }}</time>
+                {{ end }}
+                <a href="{{ v.URL() }}">查看</a>
+            </div>
+        </article>
+        {{ end }}
+        {{ end }}
+    </div>
+</div>
+{{ end }}
