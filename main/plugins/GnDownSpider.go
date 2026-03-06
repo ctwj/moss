@@ -172,19 +172,39 @@ func (g *GnDownSpider) getArticleLinks(pageURL string) ([]string, error) {
 
 	seen := make(map[string]struct{})
 	var links []string
-	doc.Find(".excerpt h2 a, .post-list a").Each(func(i int, s *goquery.Selection) {
-		if href, exists := s.Attr("href"); exists {
-			// 转换相对路径为绝对路径
-			if strings.HasPrefix(href, "/") {
-				href = g.baseURL + href
+
+	// 遍历每个文章块，检测VIP或置顶
+	doc.Find(".excerpt, .post-list .post-item").Each(func(i int, s *goquery.Selection) {
+		// 检测VIP或置顶标识
+		isVIPorSticky := false
+		s.Find("span.sticky-icon").Each(func(j int, span *goquery.Selection) {
+			text := strings.TrimSpace(span.Text())
+			if text == "VIP" || text == "置顶" {
+				isVIPorSticky = true
+				return
 			}
-			if strings.Contains(href, g.baseURL) && strings.HasSuffix(href, ".html") {
-				if _, ok := seen[href]; !ok {
-					seen[href] = struct{}{}
-					links = append(links, href)
+		})
+
+		// 如果是VIP或置顶，跳过此文章
+		if isVIPorSticky {
+			return
+		}
+
+		// 提取文章链接
+		s.Find("h2 a, a.post-title").Each(func(j int, a *goquery.Selection) {
+			if href, exists := a.Attr("href"); exists {
+				// 转换相对路径为绝对路径
+				if strings.HasPrefix(href, "/") {
+					href = g.baseURL + href
+				}
+				if strings.Contains(href, g.baseURL) && strings.HasSuffix(href, ".html") {
+					if _, ok := seen[href]; !ok {
+						seen[href] = struct{}{}
+						links = append(links, href)
+					}
 				}
 			}
-		}
+		})
 	})
 
 	return links, nil
@@ -246,7 +266,21 @@ func (g *GnDownSpider) fetchArticle(articleURL string) (*entity.Article, error) 
 	if content == "" {
 		return nil, errors.New("无法提取文章内容")
 	}
-	article.Content = content
+	// 处理下载地址部分：移除下载地址之后的内容并提取下载链接
+	processedContent, downloadLinks := g.ProcessDownloadSection(content)
+	article.Content = processedContent
+
+	// 如果提取到下载链接，添加到extends字段
+	if len(downloadLinks) > 0 {
+		g.ctx.Log.Info("提取到下载链接", zap.Int("count", len(downloadLinks)))
+		for i, link := range downloadLinks {
+			g.ctx.Log.Info("下载链接",
+				zap.Int("index", i+1),
+				zap.String("type", link["type"]),
+				zap.String("url", link["url"]),
+				zap.String("password", link["password"]))
+		}
+	}
 
 	// 提取描述 - 从meta标签提取，避免页面结构信息
 	article.Description = g.extractMetaDescription(doc)
@@ -260,6 +294,7 @@ func (g *GnDownSpider) fetchArticle(articleURL string) (*entity.Article, error) 
 
 	// 构建extends字段
 	extends := g.buildExtends(doc, articleURL)
+
 	if _, err := json.Marshal(extends); err == nil {
 		// 转换为Extends格式存储
 		extendsItems := make([]vo.ExtendsItem, 0)
@@ -272,19 +307,62 @@ func (g *GnDownSpider) fetchArticle(articleURL string) (*entity.Article, error) 
 		article.Extends = extendsItems
 	}
 
+	// 将下载链接存储到res字段中（而不是extends字段）
+	if len(downloadLinks) > 0 {
+		// 将下载链接数组直接存储为res字段的值
+		article.Res = vo.Extends{
+			vo.ExtendsItem{
+				Key:   "download_links",
+				Value: downloadLinks, // 直接存储下载链接数组
+			},
+		}
+	}
+
 	// 提取发布时间
 	article.CreateTime = g.extractTime(doc)
+
+	// 获取分类ID
+	categoryName := g.extractCategory(doc)
+	g.ctx.Log.Info("提取到分类名称", zap.String("category", categoryName))
+
+	if categoryName != "" {
+		// 尝试精确匹配系统分类
+		if cat, err := service.Category.GetByName(categoryName); err == nil && cat.ID > 0 {
+			article.CategoryID = cat.ID
+			g.ctx.Log.Info("分类匹配成功", zap.String("category", categoryName), zap.Int("category_id", cat.ID))
+		} else {
+			g.ctx.Log.Warn("分类匹配失败，使用默认分类", zap.String("category", categoryName), zap.Error(err))
+			// 匹配失败，使用默认分类 "其他软件"
+			if defaultCat, err := service.Category.GetByName("其他软件"); err == nil && defaultCat.ID > 0 {
+				article.CategoryID = defaultCat.ID
+				g.ctx.Log.Info("使用默认分类", zap.String("default_category", "其他软件"), zap.Int("category_id", defaultCat.ID))
+			} else {
+				g.ctx.Log.Error("默认分类也找不到", zap.Error(err))
+			}
+		}
+	} else {
+		g.ctx.Log.Warn("未提取到分类名称，使用默认分类")
+		// 未提取到分类，也使用默认分类
+		if defaultCat, err := service.Category.GetByName("其他软件"); err == nil && defaultCat.ID > 0 {
+			article.CategoryID = defaultCat.ID
+			g.ctx.Log.Info("使用默认分类", zap.String("default_category", "其他软件"), zap.Int("category_id", defaultCat.ID))
+		}
+	}
 
 	return article, nil
 }
 
-// 生成slug: gndown + 文章标题hash，保证多源采集时slug隔离
+// 生成slug: 基于标题的稳定hash，确保同一篇文章多次采集使用相同slug
 func (g *GnDownSpider) buildSlug(title string) string {
 	title = strings.TrimSpace(strings.ToLower(title))
 	if title == "" {
 		return ""
 	}
-	return "gndown-" + cryptor.Md5String("gndown|"+title)
+
+	// 使用标题生成稳定hash，确保同一篇文章多次采集得到相同slug
+	// 使用较短的MD5前缀来避免slug过长
+	fullHash := cryptor.Md5String(title)
+	return fullHash[:12] // 取前12位，足够唯一且较短
 }
 
 // 提取文章标题
@@ -634,13 +712,66 @@ func (g *GnDownSpider) MarshalJSON() ([]byte, error) {
 
 // 提取分类信息
 func (g *GnDownSpider) extractCategory(doc *goquery.Document) string {
-	// 从面包屑导航提取
-	category := doc.Find(".breadcrumbs a:last, .article-meta .cat, .meta .cat, .article-meta a[href*='category']").Last().Text()
-	category = strings.TrimSpace(category)
+	// 尝试多种选择器提取分类信息
+	var category string
+
+	// 方法1: 详情页分类提取 - 从span.item中查找分类链接
+	doc.Find("span.item:contains('分类') a[rel='category tag']").Each(func(i int, s *goquery.Selection) {
+		if category == "" {
+			text := strings.TrimSpace(s.Text())
+			if text != "" {
+				category = text
+			}
+		}
+	})
+
+	// 方法2: 列表页分类提取 - 优先查找class为cat的a标签（最精确的匹配）
+	if category == "" {
+		doc.Find("a.cat").Each(func(i int, s *goquery.Selection) {
+			if category == "" {
+				// 获取文本内容，移除i标签等子元素的影响
+				clone := s.Clone()
+				clone.Find("i, img, svg").Remove() // 移除图标等元素
+				text := strings.TrimSpace(clone.Text())
+				if text != "" {
+					category = text
+				}
+			}
+		})
+	}
+
+	// 方法3: 从面包屑导航提取（优先选择倒数第二个，通常是分类）
+	if category == "" {
+		doc.Find(".breadcrumbs a").Each(func(i int, s *goquery.Selection) {
+			if i == 1 { // 第二个链接通常是分类
+				category = strings.TrimSpace(s.Text())
+			}
+		})
+	}
+
+	// 方法4: 如果面包屑没有，从文章meta信息中提取
+	if category == "" {
+		category = strings.TrimSpace(doc.Find(".article-meta .cat").Text())
+	}
+
+	// 方法5: 从meta中的category链接提取
+	if category == "" {
+		doc.Find(".article-meta a[href*='category']").Each(func(i int, s *goquery.Selection) {
+			if category == "" {
+				category = strings.TrimSpace(s.Text())
+			}
+		})
+	}
+
+	// 方法6: 从.meta区域提取
+	if category == "" {
+		category = strings.TrimSpace(doc.Find(".meta .cat").Text())
+	}
 
 	// 清理不需要的文字
 	category = strings.TrimPrefix(category, "分类：")
 	category = strings.TrimPrefix(category, "Category:")
+	category = strings.TrimSpace(category)
 
 	return category
 }
@@ -818,4 +949,191 @@ func (g *GnDownSpider) processContentImages(content *goquery.Selection) string {
 
 	html, _ := content.Html()
 	return strings.TrimSpace(html)
+}
+
+// 处理下载地址部分：移除下载地址之后的内容并提取下载链接
+func (g *GnDownSpider) ProcessDownloadSection(content string) (processedContent string, downloadLinks []map[string]string) {
+	doc, err := goquery.NewDocumentFromReader(strings.NewReader(content))
+	if err != nil {
+		return content, nil
+	}
+
+	// 查找<h5>下载地址</h5>元素
+	doc.Find("h5").Each(func(i int, h5 *goquery.Selection) {
+		if strings.TrimSpace(h5.Text()) == "下载地址" {
+			// 查找下一个兄弟节点
+			sibling := h5.Next()
+
+			// 保存下载链接信息
+			var links []map[string]string
+
+			// 先收集下载链接信息并移除节点
+			current := sibling
+			for current != nil && current.Length() > 0 {
+				// 在当前节点中查找并收集链接信息
+				current.Find("a").Each(func(j int, a *goquery.Selection) {
+					linkURL, exists := a.Attr("href")
+					if !exists {
+						return
+					}
+
+					// 获取链接文本（实际显示的地址，通常是真实地址）
+					linkText := strings.TrimSpace(a.Text())
+
+					// 分析链接类型 - 简化逻辑：直接从a标签前面的文本提取类型
+					linkType := ""
+
+					// 获取a标签前面的直接文本节点内容 - 遍历父元素的直接子节点
+					parent := a.Parent()
+					nodes := parent.Contents()
+
+					// 找到当前a标签的索引位置，然后查找前面的文本节点
+					currentIndex := -1
+					for i := range nodes.Nodes {
+						if nodes.Eq(i).Get(0) == a.Get(0) {
+							currentIndex = i
+							break
+						}
+					}
+
+					// 从当前a标签前面开始查找文本节点
+					for i := currentIndex - 1; i >= 0; i-- {
+						node := nodes.Eq(i)
+						nodeName := goquery.NodeName(node)
+						if nodeName == "#text" {
+							textContent := strings.TrimSpace(node.Text())
+							if textContent != "" {
+								// 提取冒号前的文本作为类型
+								if colonIndex := strings.Index(textContent, "："); colonIndex != -1 {
+									// 使用中文冒号
+									linkType = strings.TrimSpace(textContent[:colonIndex])
+								} else if colonIndex := strings.Index(textContent, ":"); colonIndex != -1 {
+									// 使用英文冒号
+									linkType = strings.TrimSpace(textContent[:colonIndex])
+								} else {
+									// 如果没有冒号，取整个文本
+									linkType = strings.TrimSpace(textContent)
+								}
+								break
+							}
+						}
+					}
+
+					// 优先使用链接文本作为真实URL（更准确）
+					// 如果链接文本看起来像URL，优先使用它
+					finalURL := linkURL // 默认使用href
+					if isValidURL(linkText) {
+						// 链接文本看起来像是真实地址，使用它
+						finalURL = linkText
+					} else if strings.Contains(linkURL, "/target/") || strings.Contains(linkURL, "gndown.com") {
+						// href是跳转链接（如gndown.com/target/...），优先使用链接文本
+						if isValidURL(linkText) {
+							finalURL = linkText
+						}
+					}
+
+					// 提取访问密码 - 查找a标签后是否还有文案（密码提示）
+					password := ""
+
+					// 获取父元素的所有子节点
+					linkParent := a.Parent()
+					linkChildren := linkParent.Contents()
+
+					// 找到当前链接元素在父元素中的位置
+					linkPosition := -1
+					for i := range linkChildren.Nodes {
+						if linkChildren.Eq(i).Get(0) == a.Get(0) {
+							linkPosition = i
+							break
+						}
+					}
+
+					// 在找到链接位置后，检查链接后面是否有包含密码信息的文本节点
+					if linkPosition != -1 {
+						for j := linkPosition + 1; j < linkChildren.Length(); j++ {
+							childNode := linkChildren.Eq(j)
+
+							// 检查是否是文本节点
+							nodeName := goquery.NodeName(childNode)
+							if nodeName == "#text" {
+								textContent := childNode.Text()
+								// 查找密码模式
+								if matches := regexp.MustCompile(`(?:访问密码|密码|提取码|pwd|passwd)[:：\s]*([a-zA-Z0-9]+)`).FindStringSubmatch(textContent); len(matches) > 1 {
+									password = matches[1]
+									break // 找到就退出
+								}
+							} else {
+								// 如果遇到非文本节点（如<br/>等），则停止查找
+								// 因为用户说"一行之内"，遇到换行标记就停止
+								break
+							}
+						}
+					}
+
+					// 构建链接信息 - 只有当密码不为空时才包含密码字段
+					linkInfo := map[string]string{
+						"type": linkType,
+						"url":  finalURL,
+					}
+					if password != "" {
+						linkInfo["password"] = password
+					}
+
+					// 避免重复添加
+					isDuplicate := false
+					for _, existingLink := range links {
+						if existingLink["url"] == finalURL {
+							isDuplicate = true
+							break
+						}
+					}
+					if !isDuplicate {
+						links = append(links, linkInfo)
+					}
+				})
+
+				// 移动到下一个兄弟节点 before removing current (to avoid issues with Next())
+				nextSibling := current.Next()
+
+				// 移除当前节点（从下载地址开始的所有内容）
+				current.Remove()
+
+				// Move to next sibling
+				current = nextSibling
+			}
+
+			// 也移除h5标签本身
+			h5.Remove()
+
+			// 保存找到的下载链接
+			downloadLinks = links
+
+			return // 只处理第一个匹配项
+		}
+	})
+
+	// 返回处理后的内容
+	processedContent, err = doc.Find("body").Html()
+	if err != nil {
+		return content, downloadLinks
+	}
+
+	return processedContent, downloadLinks
+}
+
+// isValidURL 检查字符串是否为有效的URL
+func isValidURL(str string) bool {
+	// 简单的URL格式检查，判断是否包含协议和域名
+	lowerStr := strings.ToLower(str)
+	if strings.Contains(lowerStr, "http://") || strings.Contains(lowerStr, "https://") {
+		// 检查是否包含常见的域名格式
+		if strings.Contains(lowerStr, ".") && (strings.Contains(lowerStr, "com") || strings.Contains(lowerStr, "cn") ||
+			strings.Contains(lowerStr, "net") || strings.Contains(lowerStr, "org") ||
+			strings.Contains(lowerStr, "io") || strings.Contains(lowerStr, "cc") ||
+			strings.Contains(lowerStr, "baidu") || strings.Contains(lowerStr, "quark") ||
+			strings.Contains(lowerStr, "lanzoub") || strings.Contains(lowerStr, "ctfile")) {
+			return true
+		}
+	}
+	return false
 }
