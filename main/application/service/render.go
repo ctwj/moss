@@ -94,6 +94,38 @@ func (r *RenderService) Article(item *entity.Article) (_ []byte, err error) {
 		err = errors.New("item is nil")
 		return
 	}
+
+	// Create a map with the original article and add the category
+	articleMap := make(map[string]interface{})
+
+	// Add the original article as a field
+	articleMap["Article"] = *item
+
+	// Get category if article has a category ID
+	var category *entity.Category
+	if item.CategoryID > 0 {
+		category, err = service.Category.Get(item.CategoryID)
+		if err != nil {
+			// If category not found, continue without it
+			category = nil
+		}
+	}
+	articleMap["Category"] = category
+
+	// Add individual fields so templates can access them directly
+	articleMap["ID"] = item.ID
+	articleMap["Slug"] = item.Slug
+	articleMap["Title"] = item.Title
+	articleMap["CreateTime"] = item.CreateTime
+	articleMap["CategoryID"] = item.CategoryID
+	articleMap["Views"] = item.Views
+	articleMap["Thumbnail"] = item.Thumbnail
+	articleMap["Description"] = item.Description
+	articleMap["Keywords"] = item.Keywords
+	articleMap["Content"] = item.Content
+	articleMap["Extends"] = item.Extends
+	articleMap["Res"] = item.Res
+
 	return template.Render("template/article.html", template.Binds{
 		Page: template.Page{
 			Name:        "article",
@@ -101,7 +133,7 @@ func (r *RenderService) Article(item *entity.Article) (_ []byte, err error) {
 			Keywords:    item.Keywords,
 			Description: item.Description,
 		},
-		Data: item,
+		Data: articleMap,
 	})
 }
 

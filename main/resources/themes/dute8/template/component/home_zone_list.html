@@ -19,12 +19,12 @@
         {{ if i >= 6 && i < limit }}
         <article>
             <h3><a href="{{ v.URL() }}">{{ v.Title }}</a></h3>
-            <div class="dute-zone-meta">
+            <!-- <div class="dute-zone-meta">
                 {{ if v.CreateTime > 0 }}
                 <time>{{ v.CreateTimeFormat("01-02") }}</time>
                 {{ end }}
                 <a href="{{ v.URL() }}">查看</a>
-            </div>
+            </div> -->
         </article>
         {{ end }}
         {{ end }}
