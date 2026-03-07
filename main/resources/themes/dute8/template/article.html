@@ -18,6 +18,25 @@
         </p>
         {{ Data.Content | raw}}
 
+        {{ if len(Data.Res) > 0}}
+        <h5 class="dute-downloads-title"><i class="icon icon-download mr-2"></i>下载地址</h5>
+        <div class="dute-downloads-list">
+            {{ range i, resItem := Data.Res }}
+            {{ if resItem.Value }}
+            {{ range j, link := resItem.Value }}
+            {{ if link.url }}
+            {{ if len(link.type) > 10}}
+            <a href="/download/{{ Data.Slug }}?type={{ link.type }}" target="_blank" rel="noopener noreferrer" class="dute-download-link">{{ link.type }}</a>
+            {{ else }}
+            <a href="/download/{{ Data.Slug }}?type={{ link.type }}" target="_blank" rel="noopener noreferrer" class="dute-download-btn">{{ link.type }}</a>
+            {{ end }}
+            {{ end }}
+            {{ end }}
+            {{ end }}
+            {{ end }}
+        </div>
+        {{ end }}
+
         {{ if len(tags) > 0}}
         <ul class="tags text-sm py-6">
             {{ range i, v := tags }}

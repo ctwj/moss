@@ -301,6 +301,84 @@
   border-radius: 8px;
 }
 
+.dute-article h5 {
+  margin: 18px 0 10px;
+  color: #1a2a44;
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.5;
+  padding-bottom: 6px;
+  border-bottom: 2px solid #e8ecf6;
+}
+
+.dute-downloads-title {
+  margin: 20px 0 14px;
+  color: #1a2a44;
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.5;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid #e8ecf6;
+}
+
+.dute-downloads-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.dute-download-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 16px;
+  background: linear-gradient(135deg, #6b8cff, #5a7aed);
+  color: #ffffff;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  text-align: center;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(107, 140, 255, 0.25);
+}
+
+.dute-download-btn:hover {
+  background: linear-gradient(135deg, #5a7aed, #4a6ce0);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(107, 140, 255, 0.35);
+  text-decoration: none;
+}
+
+.dute-download-btn:active {
+  transform: translateY(0);
+}
+
+.dute-download-link {
+  display: block;
+  padding: 10px 14px;
+  background: #f1f4fc;
+  color: #2d3d59;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  border: 1px solid #e6ebf8;
+}
+
+.dute-download-link:hover {
+  background: #e8edfa;
+  color: #3b54e8;
+  border-color: #d5dff6;
+  text-decoration: none;
+}
+
 .dute-pagination {
   display: flex;
   align-items: center;
@@ -1819,6 +1897,23 @@
   background: #eef3ff;
   color: #2f54eb;
   text-decoration: none;
+}
+
+@media (max-width: 767px) {
+  .dute-downloads-list {
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 8px;
+  }
+
+  .dute-download-btn {
+    padding: 9px 12px;
+    font-size: 13px;
+  }
+
+  .dute-download-link {
+    padding: 9px 12px;
+    font-size: 13px;
+  }
 }
 
 @media (max-width: 1023px) {

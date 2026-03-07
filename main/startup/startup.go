@@ -52,6 +52,7 @@ func initPlugins() {
 		plugins.NewPostStore(),
 		plugins.NewDidiAuto(),
 		plugins.NewGnDownSpider(),
+		plugins.NewDownloadLimit(),
 	)
 
 }

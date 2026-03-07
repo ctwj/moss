@@ -57,6 +57,9 @@ func (r *Router) RegisterHome(route fiber.Router) {
 	route.Get(articleRule, middleware.Cache, middleware.MinifyCode, controller.HomeArticle).Name("article")
 	route.Put(articleRule, controller.HomeArticleViews)
 
+	// download redirect
+	route.Get("/download/:slug", controller.HomeDownloadRedirect).Name("download")
+
 	// not found
 	route.All("*", middleware.MinifyCode, controller.HomeNotFound)
 }
