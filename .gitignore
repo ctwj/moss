@@ -92,4 +92,5 @@ main/moss.db*
 main/moss.db-*
 main/themes/
 main/public/
+main/plugins/themes/
 nginx-moss-dev.conf            # 本地Nginx配置示例
