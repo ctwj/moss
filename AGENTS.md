@@ -77,6 +77,11 @@ npm install
 
 # 构建 CSS
 npx tailwindcss -i ./css/style.css -o ./css/dist/style.css --minify
+
+# 更新模板到资源文件 (开发默认模板时使用)
+npx tailwindcss -i ./css/style.css -o ../../main/tmp/themes/germ/public/style.css --minify
+rm -r -f ./main/resources/themes
+cp -r ./main/tmp/themes ./main/resources/themes
 ```
 
 ### 使用 Taskfile (推荐)
@@ -96,6 +101,27 @@ task dev-backend
 
 # 启动前端开发服务器
 task dev-frontend
+
+# 启动后端服务 (无热重载)
+task run
+
+# 启动前端开发服务器 (快捷方式)
+task admin
+
+# 检查开发环境状态
+task status
+
+# 查看开发日志
+task logs
+
+# 实时查看 Nginx 日志
+task logs-tail
+
+# 重载 Nginx 配置
+task restart-nginx
+
+# 重置管理员账户 (10分钟内有效)
+task reset-admin
 
 # 构建所有 (前端 + 多平台后端)
 task build
@@ -241,7 +267,21 @@ admin/src/
 
 ### 插件开发
 
-插件位于 `plugins/` 目录，实现特定接口后自动注册。
+插件位于 `main/plugins/` 目录，实现特定接口后自动注册。
+
+现有插件:
+- `ArticleSanitizer.go` - 文章内容净化
+- `DetectLinks.go` - 链接检测
+- `GenerateDescription.go` - 生成描述
+- `GenerateSlug.go` - 生成 Slug
+- `GnDownSpider.go` - 火车头内容采集
+- `MakeCarousel.go` - 生成轮播图
+- `NewDidiAuto.go` - 滴滴自动推送
+- `PostStore.go` - 文章存储
+- `PreBuildArticleCache.go` - 预构建文章缓存
+- `PushToBaidu.go` - 百度推送
+- `PushToBing.go` - 必应推送
+- `SaveArticleImages.go` - 保存文章图片
 
 ---
 
@@ -252,6 +292,10 @@ admin/src/
 3. **API 代理**: Vite 代理 `/admin/api` 到 `http://127.0.0.1:9008`
 4. **端口占用**: 确保 3000、9008 端口可用
 5. **提交前**: 运行 `go test ./...` 确保后端测试通过
+6. **开发访问**:
+   - 网站前台: http://localhost:9008/
+   - 管理后台: http://localhost:3000/admin/
+   - API 地址: http://localhost:3000/admin/api/*
 
 ---
 
