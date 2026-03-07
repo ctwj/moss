@@ -2,6 +2,7 @@ package plugins
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
 	"errors"
 	"fmt"
@@ -20,6 +21,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
@@ -27,8 +29,30 @@ import (
 	"github.com/duke-git/lancet/v2/cryptor"
 	"github.com/h2non/filetype"
 	"github.com/h2non/filetype/types"
+	"github.com/panjf2000/ants/v2"
 	"go.uber.org/zap"
+	"golang.org/x/time/rate"
 )
+
+// uploadTask 上传任务
+type uploadTask struct {
+	TaskID    string        // 任务ID
+	Name      string        // 文件名
+	Ext       string        // 文件扩展名
+	ImgType   string        // 图片类型
+	File      []byte        // 文件内容
+	Result    chan *uploadResult // 结果通道
+	Retries   int           // 重试次数
+	CreatedAt time.Time     // 创建时间
+}
+
+// uploadResult 上传结果
+type uploadResult struct {
+	URL       string        // 上传后的URL
+	Error     error         // 错误信息
+	Completed bool          // 是否完成
+	Retried   int           // 重试次数
+}
 
 type SaveArticleImages struct {
 	EnableOnCreate bool `json:"enable_on_create"` // 创建时执行
@@ -57,9 +81,23 @@ type SaveArticleImages struct {
 	APITimeout        int    `json:"api_timeout"`         // 图床上传超时(秒)
 	APIProxy          string `json:"api_proxy"`           // 图床上传代理
 	APIImageDomain    string `json:"api_image_domain"`    // 图床图片域名(用于跳过重复上传)
+	APIRateLimitPerMinute int `json:"api_rate_limit_per_minute"` // API每分钟调用限制
+	APIMaxQueueSize   int    `json:"api_max_queue_size"`  // API上传队列最大长度
+	APIQueueTimeout   int    `json:"api_queue_timeout"`   // 队列任务超时时间(秒)
 
 	ctx         *pluginEntity.Plugin
 	downReferer []saveArticleImagesDownReferer
+
+	// 频率限制和队列相关字段
+	uploadQueue    chan *uploadTask          // 上传任务队列
+	rateLimiter    *rate.Limiter              // 频率限制器
+	workerPool     *ants.PoolWithFunc         // 工作池
+	queueCtx       context.Context            // 队列上下文
+	queueCancel    context.CancelFunc         // 队列取消函数
+	uploadMutex    sync.Mutex                 // 上传互斥锁
+	wg             sync.WaitGroup              // 等待组
+	uploadResults  map[string]*uploadResult   // 上传结果映射
+	resultMutex    sync.Mutex                 // 结果映射互斥锁
 }
 
 func NewSaveArticleImages() *SaveArticleImages {
@@ -82,6 +120,9 @@ func NewSaveArticleImages() *SaveArticleImages {
 		APIURLPath:        "data.url",
 		APISuccessValue:   "true",
 		APITimeout:        30,
+		APIRateLimitPerMinute: 20,  // 默认每分钟20次
+		APIMaxQueueSize:   1000,   // 默认队列最大1000个任务
+		APIQueueTimeout:   300,    // 默认队列超时5分钟
 	}
 }
 
@@ -100,6 +141,16 @@ func (s *SaveArticleImages) Load(ctx *pluginEntity.Plugin) error {
 	s.ctx = ctx
 	service.Article.AddCreateBeforeEvents(s)
 	service.Article.AddUpdateBeforeEvents(s)
+
+	// 初始化频率限制和队列系统
+	if err := s.initRateLimiter(); err != nil {
+		return fmt.Errorf("init rate limiter failed: %w", err)
+	}
+
+	if err := s.initUploadQueue(); err != nil {
+		return fmt.Errorf("init upload queue failed: %w", err)
+	}
+
 	return nil
 }
 func (s *SaveArticleImages) ArticleCreateBefore(item *entity.Article) (err error) {
@@ -342,7 +393,7 @@ func (s *SaveArticleImages) getDownReferer(src string) string {
 
 func (s *SaveArticleImages) uploadFile(name, ext, imgType string, file []byte) (string, error) {
 	if strings.EqualFold(strings.TrimSpace(s.UploadTarget), "api") {
-		return s.uploadByAPI(name, ext, imgType, file)
+		return s.uploadByAPIWithQueue(name, ext, imgType, file)
 	}
 	return s.uploadByStorage(name, ext, imgType, file)
 }
@@ -355,6 +406,69 @@ func (s *SaveArticleImages) uploadByStorage(name, ext, imgType string, file []by
 		return "", err
 	}
 	return uploadResult.URL, nil
+}
+
+func (s *SaveArticleImages) uploadByAPIWithQueue(name, ext, imgType string, file []byte) (string, error) {
+	// 如果频率限制器未初始化，直接上传
+	if s.rateLimiter == nil || s.uploadQueue == nil {
+		return s.uploadByAPI(name, ext, imgType, file)
+	}
+
+	// 创建上传任务
+	task := &uploadTask{
+		TaskID:    cryptor.Md5String(name + ext + string(file[:minInt(len(file), 100)])),
+		Name:      name,
+		Ext:       ext,
+		ImgType:   imgType,
+		File:      file,
+		Result:    make(chan *uploadResult, 1),
+		Retries:   0,
+		CreatedAt: time.Now(),
+	}
+
+	// 检查是否可以直接上传（有可用令牌且队列为空）
+	if s.rateLimiter.Allow() && len(s.uploadQueue) == 0 {
+		// 直接上传
+		url, err := s.uploadByAPI(name, ext, imgType, file)
+		if err == nil {
+			s.ctx.Log.Debug("direct upload success",
+				zap.String("task_id", task.TaskID),
+				zap.String("name", name))
+			return url, nil
+		}
+		// 直接上传失败，尝试加入队列
+		s.ctx.Log.Debug("direct upload failed, trying queue",
+			zap.String("task_id", task.TaskID),
+			zap.Error(err))
+	}
+
+	// 加入上传队列
+	select {
+	case s.uploadQueue <- task:
+		s.ctx.Log.Info("upload task queued",
+			zap.String("task_id", task.TaskID),
+			zap.String("name", name),
+			zap.Int("queue_length", len(s.uploadQueue)))
+	default:
+		// 队列满，返回错误
+		return "", errors.New("upload queue is full, please try again later")
+	}
+
+	// 等待结果
+	timeout := s.APIQueueTimeout
+	if timeout <= 0 {
+		timeout = 300 // 默认5分钟
+	}
+
+	select {
+	case result := <-task.Result:
+		if result.Error != nil {
+			return "", result.Error
+		}
+		return result.URL, nil
+	case <-time.After(time.Duration(timeout) * time.Second):
+		return "", fmt.Errorf("upload task timeout after %d seconds", timeout)
+	}
 }
 
 func (s *SaveArticleImages) uploadByAPI(name, ext, _ string, file []byte) (string, error) {
@@ -501,4 +615,190 @@ func minInt(a, b int) int {
 		return a
 	}
 	return b
+}
+
+// initRateLimiter 初始化频率限制器
+func (s *SaveArticleImages) initRateLimiter() error {
+	limit := s.APIRateLimitPerMinute
+	if limit <= 0 {
+		limit = 20 // 默认每分钟20次
+	}
+
+	// 创建令牌桶限流器：每秒补充 limit/60 个令牌，桶容量为 limit
+	s.rateLimiter = rate.NewLimiter(rate.Limit(limit)/60, limit)
+	s.ctx.Log.Info("rate limiter initialized", zap.Int("limit_per_minute", limit))
+	return nil
+}
+
+// initUploadQueue 初始化上传队列
+func (s *SaveArticleImages) initUploadQueue() error {
+	queueSize := s.APIMaxQueueSize
+	if queueSize <= 0 {
+		queueSize = 1000 // 默认队列长度1000
+	}
+
+	// 创建上传任务队列
+	s.uploadQueue = make(chan *uploadTask, queueSize)
+	s.uploadResults = make(map[string]*uploadResult)
+
+	// 创建上下文和取消函数
+	s.queueCtx, s.queueCancel = context.WithCancel(context.Background())
+
+	// 初始化工作池
+	poolSize := 5 // 默认5个工作协程
+	pool, err := ants.NewPoolWithFunc(poolSize, s.processUploadTask, ants.WithNonblocking(true))
+	if err != nil {
+		return fmt.Errorf("create worker pool failed: %w", err)
+	}
+	s.workerPool = pool
+
+	// 启动队列处理协程
+	s.wg.Add(1)
+	go s.queueProcessor()
+
+	s.ctx.Log.Info("upload queue initialized",
+		zap.Int("queue_size", queueSize),
+		zap.Int("worker_count", poolSize))
+	return nil
+}
+
+// queueProcessor 队列处理器
+func (s *SaveArticleImages) queueProcessor() {
+	defer s.wg.Done()
+
+	ticker := time.NewTicker(100 * time.Millisecond) // 每100ms检查一次
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-s.queueCtx.Done():
+			s.ctx.Log.Info("queue processor stopped")
+			return
+		case <-ticker.C:
+			s.processQueueItems()
+		}
+	}
+}
+
+// processQueueItems 处理队列中的任务
+func (s *SaveArticleImages) processQueueItems() {
+	for {
+		select {
+		case task := <-s.uploadQueue:
+			// 检查是否有可用的令牌
+			if s.rateLimiter.Allow() {
+				// 提交任务到工作池
+				err := s.workerPool.Invoke(task)
+				if err != nil {
+					s.ctx.Log.Error("failed to submit upload task to worker pool",
+						zap.String("task_id", task.TaskID),
+						zap.Error(err))
+					// 返回错误结果
+					task.Result <- &uploadResult{
+						Error:     fmt.Errorf("failed to submit task: %w", err),
+						Completed: true,
+					}
+				}
+			} else {
+				// 没有可用令牌，将任务放回队列
+				select {
+				case s.uploadQueue <- task:
+					// 成功放回队列
+				default:
+					// 队列已满，返回错误
+					s.ctx.Log.Warn("upload queue is full, task rejected",
+						zap.String("task_id", task.TaskID))
+					task.Result <- &uploadResult{
+						Error:     errors.New("upload queue is full"),
+						Completed: true,
+					}
+				}
+				break // 没有令牌，等待下次检查
+			}
+		default:
+			// 队列为空，退出循环
+			return
+		}
+	}
+}
+
+// processUploadTask 处理单个上传任务
+func (s *SaveArticleImages) processUploadTask(taskData interface{}) {
+	task, ok := taskData.(*uploadTask)
+	if !ok {
+		s.ctx.Log.Error("invalid task type", zap.Any("task_data", taskData))
+		return
+	}
+
+	// 等待频率限制
+	if err := s.rateLimiter.Wait(context.Background()); err != nil {
+		s.ctx.Log.Error("rate limiter wait failed",
+			zap.String("task_id", task.TaskID),
+			zap.Error(err))
+		task.Result <- &uploadResult{
+			Error:     fmt.Errorf("rate limiter wait failed: %w", err),
+			Completed: true,
+		}
+		return
+	}
+
+	// 执行上传
+	result := &uploadResult{Completed: true}
+	url, err := s.uploadByAPI(task.Name, task.Ext, task.ImgType, task.File)
+	if err != nil {
+		result.Error = err
+		s.ctx.Log.Warn("upload task failed",
+			zap.String("task_id", task.TaskID),
+			zap.String("name", task.Name),
+			zap.Error(err))
+	} else {
+		result.URL = url
+		s.ctx.Log.Info("upload task success",
+			zap.String("task_id", task.TaskID),
+			zap.String("name", task.Name),
+			zap.String("url", url))
+	}
+
+	task.Result <- result
+}
+
+// Unload 清理资源
+func (s *SaveArticleImages) Unload() error {
+	// 取消队列上下文
+	if s.queueCancel != nil {
+		s.queueCancel()
+	}
+
+	// 关闭工作池
+	if s.workerPool != nil {
+		s.workerPool.Release()
+	}
+
+	// 等待队列处理器完成
+	s.wg.Wait()
+
+	// 清理未完成的任务
+	close(s.uploadQueue)
+
+	s.ctx.Log.Info("SaveArticleImages plugin unloaded")
+	return nil
+}
+
+// GetQueueStats 获取队列统计信息
+func (s *SaveArticleImages) GetQueueStats() map[string]interface{} {
+	s.uploadMutex.Lock()
+	defer s.uploadMutex.Unlock()
+
+	stats := make(map[string]interface{})
+	stats["queue_length"] = len(s.uploadQueue)
+	stats["queue_capacity"] = cap(s.uploadQueue)
+	stats["rate_limit_per_minute"] = s.APIRateLimitPerMinute
+	stats["rate_limit_available"] = s.rateLimiter.Allow() // 检查当前是否有可用令牌
+
+	if s.workerPool != nil {
+		stats["worker_pool_running"] = s.workerPool.Running()
+		stats["worker_pool_waiting"] = s.workerPool.Waiting()
+	}
+
+	return stats
 }

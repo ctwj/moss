@@ -109,6 +109,20 @@
         <a-form-item label="附加表单参数" help="每行一条，格式：key=value">
           <a-textarea v-model="data.api_form_data" :auto-size="{minRows:3,maxRows:6}" />
         </a-form-item>
+
+        <a-divider>频率限制设置</a-divider>
+
+        <a-form-item label="每分钟调用限制" help="API每分钟最多调用次数，超出将排队等待">
+          <a-input-number v-model="data.api_rate_limit_per_minute" class="numberInput" :min="1" :max="1000" />
+        </a-form-item>
+
+        <a-form-item label="队列最大长度" help="上传任务队列的最大长度，超出将拒绝上传">
+          <a-input-number v-model="data.api_max_queue_size" class="numberInput" :min="10" :max="10000" />
+        </a-form-item>
+
+        <a-form-item label="队列任务超时(秒)" help="队列中任务的最长等待时间">
+          <a-input-number v-model="data.api_queue_timeout" class="numberInput" :min="30" :max="3600" />
+        </a-form-item>
       </template>
 
       <a-alert v-else type="info">
