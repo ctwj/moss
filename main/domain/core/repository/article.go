@@ -190,6 +190,55 @@ func (r *ArticleRepo) ListByCategoryIds(ctx *context.Context, categoryIds []int)
 	return
 }
 
+// ListByCategoryIDWithDetail 根据分类ID调用文章列表（包含详情，用于模板渲染）
+func (r *ArticleRepo) ListByCategoryIDWithDetail(ctx *context.Context, categoryID int) (res []entity.Article, err error) {
+	err = db.DB.Transaction(func(tx *gorm.DB) error {
+		// 查询基础信息
+		var articleBases []entity.ArticleBase
+		if err := tx.Model(&entity.ArticleBase{}).
+			Scopes(gormx.Context(ctx, gormx.WhereCategoryIds([]int{categoryID}))).
+			Find(&articleBases).Error; err != nil {
+			return err
+		}
+
+		if len(articleBases) == 0 {
+			return nil
+		}
+
+		// 收集所有文章ID
+		articleIDs := make([]int, len(articleBases))
+		for i, base := range articleBases {
+			articleIDs[i] = base.ID
+		}
+
+		// 查询详情信息
+		var articleDetails []entity.ArticleDetail
+		if err := tx.Model(&entity.ArticleDetail{}).
+			Where("article_id IN ?", articleIDs).
+			Find(&articleDetails).Error; err != nil {
+			return err
+		}
+
+		// 创建详情映射
+		detailMap := make(map[int]entity.ArticleDetail)
+		for _, detail := range articleDetails {
+			detailMap[detail.ArticleID] = detail
+		}
+
+		// 组装完整的 Article 对象
+		res = make([]entity.Article, len(articleBases))
+		for i, base := range articleBases {
+			res[i].ArticleBase = base
+			if detail, ok := detailMap[base.ID]; ok {
+				res[i].ArticleDetail = detail
+			}
+		}
+
+		return nil
+	})
+	return
+}
+
 // ListAfterCreateTime 根据创建时间调用列表
 func (r *ArticleRepo) ListAfterCreateTime(ctx *context.Context, t int64) (res []entity.ArticleBase, err error) {
 	err = db.DB.Model(&entity.ArticleBase{}).Scopes(gormx.Context(ctx, gormx.WhereCreateTimeAfter(t))).Find(&res).Error

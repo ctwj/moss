@@ -142,7 +142,7 @@ func (w *Widget) CategoryPageList(categoryID, pageNumber int) (res PageListResul
 	// 查询数据函数
 	var listFun = func() (any, int) {
 		ctx := &context.Context{Limit: opt.Limit, Order: opt.Order, Page: pageNumber, FastOffset: fastOffset, Comment: "Widget.CategoryPageList"}
-		list, err := service.Article.ListByCategoryID(ctx, categoryID)
+		list, err := service.Article.ListByCategoryIDWithDetail(ctx, categoryID)
 		log.ErrorShortcut("template widget error", err)
 		return list, len(list)
 	}

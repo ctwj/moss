@@ -11,9 +11,20 @@
         {{yield breadcrumb(id=Data.CategoryID)}}
         <h1 class="dute-article-title">{{ Data.Title }}</h1>
         <p class="dute-article-meta">
-            <span><i class="mr-1 icon icon-time"></i>{{ Data.CreateTimeFormat() }}</span>
+            <span><i class="mr-1 icon icon-time"></i>{{ Data.CreateTimeFormat }}</span>
             {{ if Data.Views > 0}}
             <span class="ml-3"><i class="mr-1 icon icon-view"></i>{{ Data.Views }}</span>
+            {{ end }}
+            {{ range i, extItem := Data.Extends }}
+            {{ if extItem.Key == "file_size" }}
+            <span class="ml-3"><i class="mr-1 icon icon-file"></i>大小 {{ extItem.Value }}</span>
+            {{ end }}
+            {{ if extItem.Key == "language" }}
+            <span class="ml-3"><i class="mr-1 icon icon-globe"></i>语言 {{ extItem.Value }}</span>
+            {{ end }}
+            {{ if extItem.Key == "category" }}
+            <span class="ml-3"><i class="mr-1 icon icon-folder"></i>{{ extItem.Value }}</span>
+            {{ end }}
             {{ end }}
         </p>
         {{ Data.Content | raw}}

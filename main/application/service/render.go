@@ -3,10 +3,12 @@ package service
 import (
 	"errors"
 	"fmt"
+	"go.uber.org/zap"
 	"moss/domain/config"
 	"moss/domain/core/entity"
 	coreCtx "moss/domain/core/repository/context"
 	"moss/domain/core/service"
+	"moss/infrastructure/support/log"
 	"moss/infrastructure/support/template"
 	"net/url"
 	"path/filepath"
@@ -117,6 +119,7 @@ func (r *RenderService) Article(item *entity.Article) (_ []byte, err error) {
 	articleMap["Slug"] = item.Slug
 	articleMap["Title"] = item.Title
 	articleMap["CreateTime"] = item.CreateTime
+	articleMap["CreateTimeFormat"] = item.CreateTimeFormat()
 	articleMap["CategoryID"] = item.CategoryID
 	articleMap["Views"] = item.Views
 	articleMap["Thumbnail"] = item.Thumbnail
@@ -125,6 +128,12 @@ func (r *RenderService) Article(item *entity.Article) (_ []byte, err error) {
 	articleMap["Content"] = item.Content
 	articleMap["Extends"] = item.Extends
 	articleMap["Res"] = item.Res
+
+	// DEBUG: log extends data
+	log.Info("article render extends", zap.Int("count", len(item.Extends)))
+	for _, ext := range item.Extends {
+		log.Info("article extend item", zap.String("key", ext.Key), zap.Any("value", ext.Value))
+	}
 
 	return template.Render("template/article.html", template.Binds{
 		Page: template.Page{
