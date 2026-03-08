@@ -127,6 +127,8 @@ func (r *Router) api(route fiber.Router) {
 	route.Post("/plugin/cron/stop/:id", controller.PluginCronStop)
 	route.Post("/plugin/cron/exp/:id", controller.PluginUpdateCronExp)
 	route.Get("/plugin/log/list/:id", controller.PluginLogList)
+	route.Post("/plugin/testCookie/:id", controller.PluginTestCookie)
+	route.Post("/plugin/getDirectories/:id", controller.PluginGetDirectories)
 
 	// dashboard
 	route.Get("/dashboard/:id", controller.Dashboard.Controller)

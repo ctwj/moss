@@ -244,3 +244,33 @@ func (p *PluginService) NextRunTime(cronID cron.EntryID) (res time.Time) {
 	}
 	return
 }
+
+// TestCookie 测试插件Cookie有效性
+func (p *PluginService) TestCookie(id string, body string) (result interface{}, err error) {
+	item, err := p.Get(id)
+	if err != nil {
+		return nil, err
+	}
+	
+	// 尝试调用插件的 TestCookie 方法
+	if testCookie, ok := item.Entry.(interface{ TestCookie() (bool, error) }); ok {
+		return testCookie.TestCookie()
+	}
+	
+	return nil, errors.New("plugin does not support test cookie")
+}
+
+// GetDirectories 获取插件目录列表
+func (p *PluginService) GetDirectories(id string, body string) (result interface{}, err error) {
+	item, err := p.Get(id)
+	if err != nil {
+		return nil, err
+	}
+	
+	// 尝试调用插件的 GetDirectories 方法
+	if getDirectories, ok := item.Entry.(interface{ GetDirectories() ([]interface{}, error) }); ok {
+		return getDirectories.GetDirectories()
+	}
+	
+	return nil, errors.New("plugin does not support get directories")
+}

@@ -142,6 +142,8 @@ export default {
     system:'System',
     retry:'Retry',
     timeout:'Timeout',
+    saveDirectory:'Save Directory',
+    rateLimit:'Rate Limit',
     proxy:'Proxy',
     load:'Load',
     memory:'Memory',
@@ -170,6 +172,7 @@ export default {
     MakeCarousel:'Make Carousel',
     PostStore:'Publish Articles',
     DidiAuto:'Didi Auto',
+    BaiduCloudTransfer:'Baidu Cloud Transfer',
 
 
     wangEditor:{

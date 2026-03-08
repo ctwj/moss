@@ -142,6 +142,8 @@ export default {
     system:'系统',
     retry:'重试',
     timeout:'超时',
+    saveDirectory:'保存目录',
+    rateLimit:'速率限制',
     proxy:'代理',
     load:'负载',
     memory:'内存',
@@ -170,6 +172,7 @@ export default {
     MakeCarousel:'制作模板轮播',
     PostStore:'发布文章',
     DidiAuto:'滴滴友联自动任务',
+    BaiduCloudTransfer:'百度网盘转存',
 
 
 

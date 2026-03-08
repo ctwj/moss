@@ -53,6 +53,7 @@ func initPlugins() {
 		plugins.NewDidiAuto(),
 		plugins.NewGnDownSpider(),
 		plugins.NewDownloadLimit(),
+		plugins.NewBaiduCloudTransfer(),
 	)
 
 }

@@ -41,3 +41,13 @@ func PluginLogList(ctx *fiber.Ctx) error {
 	limit, _ := strconv.Atoi(ctx.Query("limit", "100"))
 	return ctx.JSON(mapper.MessageResultData(appService.PluginLogList(ctx.Params("id"), page, limit)))
 }
+
+// PluginTestCookie 测试插件Cookie有效性
+func PluginTestCookie(ctx *fiber.Ctx) error {
+	return ctx.JSON(mapper.MessageResultData(service.Plugin.TestCookie(ctx.Params("id"), string(ctx.Body()))))
+}
+
+// PluginGetDirectories 获取插件目录列表
+func PluginGetDirectories(ctx *fiber.Ctx) error {
+	return ctx.JSON(mapper.MessageResultData(service.Plugin.GetDirectories(ctx.Params("id"), string(ctx.Body()))))
+}
