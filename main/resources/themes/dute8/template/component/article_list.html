@@ -22,17 +22,6 @@
                         {{ if v.Views > 0 }}
                         <div><i class="mr-1 icon icon-view"></i>{{ v.Views }}</div>
                         {{ end }}
-                        {{ range j, extItem := v.Extends }}
-                        {{ if extItem.Key == "file_size" }}
-                        <div><i class="mr-1 icon icon-file"></i>大小 {{ extItem.Value }}</div>
-                        {{ end }}
-                        {{ if extItem.Key == "language" }}
-                        <div><i class="mr-1 icon icon-globe"></i>语言 {{ extItem.Value }}</div>
-                        {{ end }}
-                        {{ if extItem.Key == "category" }}
-                        <div><i class="mr-1 icon icon-folder"></i>{{ extItem.Value }}</div>
-                        {{ end }}
-                        {{ end }}
                     </div>
                 </div>
             </div>

@@ -6,6 +6,9 @@
         <a class="dute-zone-pic-item" href="{{ v.URL() }}">
             {{ if v.Thumbnail != "" }}
             <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-src="{{ v.Thumbnail }}" alt="{{ v.Title }}">
+            <div class="dute-zone-overlay">
+                <span>{{ v.Title }}</span>
+            </div>
             {{ else }}
             <span>{{ v.Title }}</span>
             {{ end }}

@@ -1,13 +1,13 @@
 # AGENTS.md - Moss 开发指南
 
-本文件为 AI 代理提供代码开发规范和构建命令参考。
+本文档为 AI 代理提供代码开发规范和构建命令参考。
 
 ## 项目概述
 
 Moss 是一个基于 Go (Fiber) + Vue 3 的 CMS 系统：
 - **后端**: Go 1.23, Fiber, GORM
-- **前端**: Vue 3, Vite, Pinia, Vue Router, Vue I18n, Naive UI/Arco Design
-- **主题**: Tailwind CSS
+- **前端**: Vue 3, Vite, Pinia, Vue Router, Vue I18n, Naive UI / Arco Design
+- **主题**: Tailwind CSS (主题: germ, dute8)
 
 ---
 
@@ -69,7 +69,7 @@ npm run preview
 ### 主题开发
 
 ```bash
-# 进入主题目录
+# 进入主题目录 (以 germ 为例)
 cd theme/germ
 
 # 安装依赖
@@ -80,7 +80,7 @@ npx tailwindcss -i ./css/style.css -o ./css/dist/style.css --minify
 
 # 更新模板到资源文件 (开发默认模板时使用)
 npx tailwindcss -i ./css/style.css -o ../../main/tmp/themes/germ/public/style.css --minify
-rm -r -f ./main/resources/themes
+rm -rf ./main/resources/themes
 cp -r ./main/tmp/themes ./main/resources/themes
 ```
 
@@ -180,24 +180,38 @@ main/
 │   ├── mapper/        # DTO 转换
 │   ├── middleware/    # 中间件
 │   └── router/        # 路由定义
-├── application/      # 应用服务层
+├── application/       # 应用服务层
 │   ├── dto/
 │   ├── mapper/
 │   └── service/
 ├── domain/            # 领域层
+│   ├── config/        # 配置领域
+│   │   ├── aggregate/
+│   │   ├── entity/    # 配置实体
+│   │   ├── repository/
+│   │   └── service/
 │   ├── core/          # 核心业务
 │   │   ├── aggregate/
 │   │   ├── entity/
 │   │   ├── event/
 │   │   ├── repository/
-│   │   └── service/
+│   │   ├── service/
+│   │   ├── utils/
+│   │   └── vo/
 │   └── support/       # 支持模块
-├── infrastructure/    # 基础设施层
+├── infrastructure/   # 基础设施层
+│   ├── general/       # 通用基础设施
+│   │   ├── command/
+│   │   ├── conf/
+│   │   ├── constant/
+│   │   └── message/
 │   ├── persistent/    # 持久化
+│   ├── support/       # 支持服务
 │   └── utils/         # 工具函数
 ├── plugins/           # 插件
+├── resources/         # 静态资源
 ├── startup/           # 初始化
-└── cmd/web/          # 入口
+└── cmd/web/           # 入口
 ```
 
 #### 其他规范
@@ -258,6 +272,13 @@ admin/src/
 2. 在 `api/web/router/` 注册路由
 3. 在 `application/service/` 添加业务逻辑
 4. 如需数据库操作，在 `domain/core/repository/` 定义接口
+
+### 后端: 添加新配置项
+
+1. 在 `domain/config/entity/` 创建或编辑配置实体
+2. 实现 `ConfigID() string` 方法
+3. 在 `domain/config/service/` 添加配置服务逻辑
+4. 配置自动加载到 `config.Config`
 
 ### 前端: 添加新页面
 
