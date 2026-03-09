@@ -92,7 +92,12 @@ func (b *BaiduUtils) ExtractSurl(shareURL string) string {
 	re = regexp.MustCompile(`/s/([a-zA-Z0-9_-]+)`)
 	matches = re.FindStringSubmatch(shareURL)
 	if len(matches) > 1 {
-		return matches[1]
+		surl := matches[1]
+		// 新格式链接以 "1" 开头，需要去掉（如: https://pan.baidu.com/s/1xxx -> xxx）
+		if len(surl) > 0 && surl[0] == '1' {
+			surl = surl[1:]
+		}
+		return surl
 	}
 
 	return ""
@@ -189,20 +194,20 @@ func (b *BaiduUtils) VerifyLink(linkURL, password string) ([]BaiduShareFile, err
 
 // GetSharedPaths 获取分享文件列表
 func (b *BaiduUtils) GetSharedPaths(shareURL string) ([]BaiduShareFile, error) {
-	// 提取 surl
+	// 提取 surl 用于验证，但访问页面时使用原始链接
 	surl := b.ExtractSurl(shareURL)
 	if surl == "" {
 		return nil, fmt.Errorf("无效的分享链接")
 	}
 
-	// 构建请求 URL
+	// 使用原始链接访问页面（保留开头的 "1"）
 	var requestURL string
 	if strings.Contains(shareURL, "/share/init?surl=") {
 		// 格式: https://pan.baidu.com/share/init?surl={surl}
-		requestURL = fmt.Sprintf("%s/share/init?surl=%s", BaiduPanBaseURL, surl)
+		requestURL = shareURL
 	} else {
-		// 格式: https://pan.baidu.com/s/{surl}
-		requestURL = fmt.Sprintf("%s/s/%s", BaiduPanBaseURL, surl)
+		// 格式: https://pan.baidu.com/s/{surl} - 使用原始链接
+		requestURL = shareURL
 	}
 
 	req, err := http.NewRequest("GET", requestURL, nil)

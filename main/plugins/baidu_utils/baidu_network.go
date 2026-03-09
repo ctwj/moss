@@ -8,6 +8,9 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
+
+	"go.uber.org/zap"
 )
 
 // BaiduDirItem 百度网盘目录项
@@ -269,4 +272,107 @@ func (b *BaiduUtils) CreateDir(path string) error {
 	}
 
 	return nil
+}
+
+// CreateShare 创建分享链接
+// 支持单个或多个文件分享
+func (b *BaiduUtils) CreateShare(fsIDs []int64, period, pwd string) (string, error) {
+	if b.bdstoken == "" {
+		if _, err := b.GetBdstoken(); err != nil {
+			return "", err
+		}
+	}
+
+	if len(fsIDs) == 0 {
+		return "", fmt.Errorf("没有可分享的文件")
+	}
+
+	apiURL := fmt.Sprintf("%s/share/pset", BaiduPanBaseURL)
+	params := url.Values{}
+	params.Set("channel", "chunlei")
+	params.Set("bdstoken", b.bdstoken)
+	params.Set("clienttype", "0")
+	params.Set("app_id", "250528")
+	params.Set("web", "1")
+	params.Set("dp-logid", fmt.Sprintf("%d", time.Now().UnixNano()))
+
+	// 构建 fid_list JSON 数组
+	var fidList strings.Builder
+	fidList.WriteString("[")
+	for i, fsID := range fsIDs {
+		if i > 0 {
+			fidList.WriteString(",")
+		}
+		fidList.WriteString(fmt.Sprintf("%d", fsID))
+	}
+	fidList.WriteString("]")
+
+	data := fmt.Sprintf(`period=%s&pwd=%s&eflag_disable=true&channel_list=[]&schannel=4&fid_list=%s`,
+		period, pwd, fidList.String())
+
+	req, err := http.NewRequest("POST", apiURL+"?"+params.Encode(), strings.NewReader(data))
+	if err != nil {
+		return "", err
+	}
+
+	b.setHeaders(req)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	// 添加详细的调试日志
+	b.Logger.Debug("创建分享链接请求详情",
+		zap.String("url", apiURL+"?"+params.Encode()),
+		zap.String("method", "POST"),
+		zap.String("data", data),
+		zap.Int("fid_count", len(fsIDs)),
+		zap.Int64s("fs_ids", fsIDs))
+
+	resp, err := b.HttpClient.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	body, err := b.readResponseBody(resp)
+	if err != nil {
+		b.Logger.Error("读取响应体失败", zap.Error(err))
+		return "", err
+	}
+
+	// 打印响应详情
+	b.Logger.Debug("创建分享链接响应详情",
+		zap.Int("status", resp.StatusCode),
+		zap.String("response_body", string(body)),
+		zap.Any("headers", resp.Header))
+
+	var result map[string]any
+	if err := json.Unmarshal(body, &result); err != nil {
+		b.Logger.Error("解析 JSON 失败", zap.Error(err), zap.String("response", string(body)))
+		return "", err
+	}
+
+	errno, _ := result["errno"].(float64)
+	if errno != 0 {
+		errorCode := int(errno)
+		errorMsg := ErrorCodeMap[errorCode]
+		if errorMsg == "" {
+			errorMsg = "未知错误"
+		}
+		b.Logger.Error("创建分享链接失败",
+			zap.Int("error_code", errorCode),
+			zap.String("error_msg", errorMsg),
+			zap.String("response", string(body)))
+		return "", fmt.Errorf("创建分享链接失败, 错误码: %d, 错误信息: %s", errorCode, errorMsg)
+	}
+
+	link, ok := result["link"].(string)
+	if !ok {
+		return "", fmt.Errorf("解析分享链接失败")
+	}
+
+	shareURL := link
+	if pwd != "" {
+		shareURL = shareURL + "?pwd=" + pwd
+	}
+
+	return shareURL, nil
 }

@@ -82,32 +82,6 @@ type BaiduSavedItem struct {
 	Error     string `json:"error"`     // 错误信息
 }
 
-// 错误码映射
-var errorCodeMap = map[int]string{
-	-1:   "链接错误，链接失效或缺少提取码",
-	-4:   "转存失败，无效登录",
-	-6:   "转存失败，请用浏览器无痕模式获取 Cookie",
-	-7:   "转存失败，转存文件夹名有非法字符",
-	-8:   "转存失败，目录中已有同名文件或文件夹存在",
-	-9:   "链接错误，提取码错误",
-	-10:  "转存失败，容量不足",
-	-12:  "链接错误，提取码错误",
-	-62:  "转存失败，链接访问次数过多",
-	0:    "转存成功",
-	2:    "转存失败，目标目录不存在",
-	4:    "转存失败，目录中存在同名文件",
-	12:   "转存失败，转存文件数超过限制",
-	20:   "转存失败，容量不足",
-	105:  "链接错误，所访问的页面不存在",
-	115:  "分享链接已失效（文件禁止分享）",
-	145:  "分享链接已失效",
-	-65:  "触发频率限制",
-	200025: "提取码输入错误，请检查提取码",
-}
-
-// 不需要重试的错误码
-var noRetryErrors = []int{-6, 115, 145, 200025, -9}
-
 // NewBaiduCloudTransfer 创建百度网盘转存插件
 func NewBaiduCloudTransfer() *BaiduCloudTransfer {
 	return &BaiduCloudTransfer{
@@ -326,10 +300,10 @@ func (b *BaiduCloudTransfer) parseDownloadLinks(res vo.Extends) []BaiduLink {
 
 						links = append(links, link)
 
-						// 添加调试日志
-						b.ctx.Log.Debug("解析到百度网盘链接",
+						// 添加调试日志（通用下载链接，不限定类型）
+						b.ctx.Log.Debug("解析到下载链接",
+							zap.String("type", link.Type),
 							zap.String("url", link.URL),
-							zap.String("password", link.Password),
 							zap.String("has_password", strconv.FormatBool(link.Password != "")))
 					}
 				}
@@ -479,7 +453,8 @@ func (b *BaiduCloudTransfer) transferLink(link BaiduLink, saveDir string) (*Baid
 	}
 
 	remotedir := "/" + saveDir
-	if err := b.transferFile(files[0].ShareID, files[0].UK, bdstoken, remotedir, fsIDs); err != nil {
+	savedFsIDs, err := b.transferFile(files[0].ShareID, files[0].UK, bdstoken, remotedir, fsIDs)
+	if err != nil {
 		savedItem.Status = "failed"
 		savedItem.Error = err.Error()
 		return savedItem, fmt.Errorf("转存文件失败: %w", err)
@@ -488,15 +463,41 @@ func (b *BaiduCloudTransfer) transferLink(link BaiduLink, saveDir string) (*Baid
 	savedItem.SavedPath = remotedir
 
 	// 创建分享链接（转存后必须分享）
-	if len(files) > 0 {
+	if len(savedFsIDs) > 0 {
 		b.ctx.Log.Info("开始创建分享链接",
 			zap.Int("article_id", 0),
-			zap.String("fs_id", strconv.FormatInt(files[0].FsID, 10)))
+			zap.Int("total_count", len(savedFsIDs)),
+			zap.String("save_dir", remotedir))
 
-		shareURL, err := b.createShare(files[0].FsID, "0", link.Password, bdstoken)
+		// 使用转存后的文件 ID（to_fs_id）
+		// 支持分享文件和目录
+		fileCount := 0
+		dirCount := 0
+		for i := range savedFsIDs {
+			// 查找对应的文件类型
+			for _, file := range files {
+				if i < len(files) && file.FsID == savedFsIDs[i] {
+					if !file.IsDir {
+						fileCount++
+					} else {
+						dirCount++
+					}
+					break
+				}
+			}
+		}
+
+		b.ctx.Log.Info("准备分享内容",
+			zap.Int("file_count", fileCount),
+			zap.Int("directory_count", dirCount),
+			zap.String("first_fs_id", strconv.FormatInt(savedFsIDs[0], 10)))
+
+		shareURL, err := b.createShare(savedFsIDs, "0", link.Password, bdstoken)
 		if err != nil {
 			b.ctx.Log.Error("创建分享链接失败",
-				zap.String("fs_id", strconv.FormatInt(files[0].FsID, 10)),
+				zap.Int("file_count", fileCount),
+				zap.Int("directory_count", dirCount),
+				zap.Int64s("fs_ids", fsIDs),
 				zap.Error(err))
 			savedItem.Error = fmt.Sprintf("转存成功但创建分享失败: %s", err.Error())
 			// 即使分享失败，转存仍然成功，状态保持 success
@@ -696,10 +697,10 @@ func (b *BaiduCloudTransfer) verifyPassCode(linkURL, pwd, bdstoken string) (stri
 		
 		// 打印响应体
 		b.ctx.Log.Error("响应体:", zap.String("body", responseStr))
-		b.ctx.Log.Error("错误信息:", zap.String("error", fmt.Sprintf("错误码: %d, 错误信息: %s", errorCode, errorCodeMap[errorCode])))
+		b.ctx.Log.Error("错误信息:", zap.String("error", fmt.Sprintf("错误码: %d, 错误信息: %s", errorCode, baiduUtils.ErrorCodeMap[errorCode])))
 		b.ctx.Log.Error("========================================")
-		
-		return "", fmt.Errorf("验证提取码失败, 错误码: %d, 错误信息: %s", errorCode, errorCodeMap[errorCode])
+
+		return "", fmt.Errorf("验证提取码失败, 错误码: %d, 错误信息: %s", errorCode, baiduUtils.ErrorCodeMap[errorCode])
 	}
 
 	randsk, ok := result["randsk"].(string)
@@ -717,22 +718,20 @@ func (b *BaiduCloudTransfer) verifyPassCode(linkURL, pwd, bdstoken string) (stri
 
 // getSharedPaths 获取分享文件列表
 func (b *BaiduCloudTransfer) getSharedPaths(shareURL string) ([]BaiduShareFile, error) {
-	// 从原始链接中提取完整的 surl（用于访问分享页面）
-	// 注意：这里需要使用完整的 surl，而不是暴力切片的 surl
-	// 验证提取码 API 使用暴力切片 surl，但获取分享文件列表 API 使用完整 surl
+	// 提取 surl 用于验证，但访问页面时使用原始链接
 	fullSurl := b.extractSurl(shareURL)
 	if fullSurl == "" {
 		return nil, errors.New("无效的分享链接")
 	}
 
-	// 根据原始链接格式选择正确的访问方式
+	// 使用原始链接访问页面（保留开头的 "1"）
 	var url string
 	if strings.Contains(shareURL, "/share/init?surl=") {
 		// 格式: https://pan.baidu.com/share/init?surl={surl}
-		url = fmt.Sprintf("%s/share/init?surl=%s", baiduPanBaseURL, fullSurl)
+		url = shareURL
 	} else {
-		// 格式: https://pan.baidu.com/s/{surl}
-		url = fmt.Sprintf("%s/s/%s", baiduPanBaseURL, fullSurl)
+		// 格式: https://pan.baidu.com/s/{surl} - 使用原始链接
+		url = shareURL
 	}
 
 	req, err := http.NewRequest("GET", url, nil)
@@ -820,8 +819,8 @@ func (b *BaiduCloudTransfer) parseShareResponse(response string) ([]BaiduShareFi
 	return files, nil
 }
 
-// transferFile 转存文件
-func (b *BaiduCloudTransfer) transferFile(shareID, uk int64, bdstoken, remotedir string, fsIDs []int64) error {
+// transferFile 转存文件到指定目录，返回转存后的文件 ID 列表
+func (b *BaiduCloudTransfer) transferFile(shareID, uk int64, bdstoken, remotedir string, fsIDs []int64) ([]int64, error) {
 	apiURL := fmt.Sprintf("%s/share/transfer", baiduPanBaseURL)
 
 	params := url.Values{}
@@ -847,7 +846,7 @@ func (b *BaiduCloudTransfer) transferFile(shareID, uk int64, bdstoken, remotedir
 
 	req, err := http.NewRequest("POST", apiURL+"?"+params.Encode(), strings.NewReader(data))
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	b.setHeaders(req)
@@ -855,100 +854,80 @@ func (b *BaiduCloudTransfer) transferFile(shareID, uk int64, bdstoken, remotedir
 
 	resp, err := b.httpClient.Do(req)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer resp.Body.Close()
 
 	// 读取响应体并处理 gzip 解压缩
 	body, err := b.readResponseBody(resp)
 	if err != nil {
-		return fmt.Errorf("读取响应体失败: %w", err)
+		return nil, fmt.Errorf("读取响应体失败: %w", err)
 	}
 
 	var result map[string]any
 	if err := json.Unmarshal(body, &result); err != nil {
-		return fmt.Errorf("解析 JSON 失败: %w", err)
+		return nil, fmt.Errorf("解析 JSON 失败: %w", err)
 	}
 
 	errno, _ := result["errno"].(float64)
 	if errno != 0 {
 		errorCode := int(errno)
-		return fmt.Errorf("转存失败, 错误码: %d, 错误信息: %s", errorCode, errorCodeMap[errorCode])
-	}
-
-	return nil
-}
-
-// createShare 创建分享链接
-func (b *BaiduCloudTransfer) createShare(fsID int64, period, pwd, bdstoken string) (string, error) {
-	b.ctx.Log.Debug("开始创建分享链接",
-		zap.Int64("fs_id", fsID),
-		zap.String("period", period),
-		zap.String("has_password", strconv.FormatBool(pwd != "")))
-
-	apiURL := fmt.Sprintf("%s/share/set", baiduPanBaseURL)
-
-	params := url.Values{}
-	params.Set("channel", "chunlei")
-	params.Set("bdstoken", bdstoken)
-	params.Set("clienttype", "0")
-	params.Set("app_id", "250528")
-	params.Set("web", "1")
-
-	data := fmt.Sprintf(`period=%s&pwd=%s&eflag_disable=true&channel_list=[]&schannel=4&fid_list=[%d]`,
-		period, pwd, fsID)
-
-	req, err := http.NewRequest("POST", apiURL+"?"+params.Encode(), strings.NewReader(data))
-	if err != nil {
-		b.ctx.Log.Error("创建分享链接请求失败", zap.Error(err))
-		return "", err
-	}
-
-	b.setHeaders(req)
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-
-	resp, err := b.httpClient.Do(req)
-	if err != nil {
-		b.ctx.Log.Error("创建分享链接请求失败", zap.Error(err))
-		return "", err
-	}
-	defer resp.Body.Close()
-
-	// 读取响应体并处理 gzip 解压缩
-	body, err := b.readResponseBody(resp)
-	if err != nil {
-		b.ctx.Log.Error("读取响应体失败", zap.Error(err))
-		return "", err
-	}
-
-	var result map[string]any
-	if err := json.Unmarshal(body, &result); err != nil {
-		b.ctx.Log.Error("解析分享链接响应失败", zap.Error(err))
-		return "", err
-	}
-
-	errno, _ := result["errno"].(float64)
-	if errno != 0 {
-		errorCode := int(errno)
-		errorMsg := errorCodeMap[errorCode]
+		errorMsg := baiduUtils.ErrorCodeMap[errorCode]
 		if errorMsg == "" {
 			errorMsg = "未知错误"
 		}
-		b.ctx.Log.Error("创建分享链接失败",
-			zap.Int("error_code", errorCode),
-			zap.String("error_msg", errorMsg))
-		return "", fmt.Errorf("创建分享链接失败, 错误码: %d, 错误信息: %s", errorCode, errorMsg)
+		return nil, fmt.Errorf("转存失败, 错误码: %d, 错误信息: %s", errorCode, errorMsg)
 	}
 
-	link, ok := result["link"].(string)
-	if !ok {
-		b.ctx.Log.Error("解析分享链接失败，响应中缺少 link 字段", zap.Any("result", result))
-		return "", errors.New("解析分享链接失败")
+	// 添加调试日志：打印转存 API 的完整响应
+	b.ctx.Log.Debug("转存 API 响应",
+		zap.String("response", string(body)),
+		zap.Int("errno", int(errno)))
+
+	// 提取转存后的文件 ID 列表（to_fs_id）
+	var savedFsIDs []int64
+	if extra, ok := result["extra"].(map[string]any); ok {
+		if list, ok := extra["list"].([]any); ok {
+			for _, item := range list {
+				if itemMap, ok := item.(map[string]any); ok {
+					if toFsID, ok := itemMap["to_fs_id"].(float64); ok {
+						savedFsIDs = append(savedFsIDs, int64(toFsID))
+					}
+				}
+			}
+		}
 	}
 
-	shareURL := link
-	if pwd != "" {
-		shareURL = shareURL + "?pwd=" + pwd
+	b.ctx.Log.Debug("提取转存后的文件 ID",
+		zap.Int("count", len(savedFsIDs)),
+		zap.Int64s("saved_fs_ids", savedFsIDs))
+
+	if len(savedFsIDs) == 0 {
+		return nil, fmt.Errorf("未能获取转存后的文件 ID")
+	}
+
+	return savedFsIDs, nil
+
+	}
+
+	
+
+	// createShare 创建分享链接（使用 baidu_utils 的统一实现）
+func (b *BaiduCloudTransfer) createShare(fsIDs []int64, period, pwd, bdstoken string) (string, error) {
+	b.ctx.Log.Debug("开始创建分享链接",
+		zap.Int("file_count", len(fsIDs)),
+		zap.String("period", period),
+		zap.String("has_password", strconv.FormatBool(pwd != "")))
+
+	if len(fsIDs) == 0 {
+		return "", errors.New("没有可分享的文件")
+	}
+
+	// 使用 baidu_utils 的统一实现
+	shareURL, err := b.baiduUtils.CreateShare(fsIDs, period, pwd)
+	if err != nil {
+		b.ctx.Log.Error("创建分享链接失败", zap.Error(err))
+		return "", err
 	}
 
 	b.ctx.Log.Info("分享链接创建成功", zap.String("share_url", shareURL))
@@ -970,7 +949,12 @@ func (b *BaiduCloudTransfer) extractSurl(shareURL string) string {
 	re = regexp.MustCompile(`/s/([a-zA-Z0-9_-]+)`)
 	matches = re.FindStringSubmatch(shareURL)
 	if len(matches) > 1 {
-		return matches[1]
+		surl := matches[1]
+		// 新格式链接以 "1" 开头，需要去掉（如: https://pan.baidu.com/s/1xxx -> xxx）
+		if len(surl) > 0 && surl[0] == '1' {
+			surl = surl[1:]
+		}
+		return surl
 	}
 
 	return ""
