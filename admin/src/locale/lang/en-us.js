@@ -173,6 +173,9 @@ export default {
     PostStore:'Publish Articles',
     DidiAuto:'Didi Auto',
     BaiduCloudTransfer:'Baidu Cloud Transfer',
+    QuarkCloudTransfer:'Quark Cloud Transfer',
+    download_limit:'Download Limit',
+    GnDownSpider:'GnDown Spider',
 
 
     wangEditor:{

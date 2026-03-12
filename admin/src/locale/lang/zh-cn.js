@@ -173,6 +173,9 @@ export default {
     PostStore:'发布文章',
     DidiAuto:'滴滴友联自动任务',
     BaiduCloudTransfer:'百度网盘转存',
+    QuarkCloudTransfer:'夸克网盘转存',
+    download_limit:'资源下载次数限制',
+    GnDownSpider:'GnDown爬虫',
 
 
 

@@ -3,6 +3,7 @@ package service
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/robfig/cron/v3"
 	"moss/domain/support/entity"
 	"moss/domain/support/factory"
@@ -252,7 +253,21 @@ func (p *PluginService) TestCookie(id string, body string) (result interface{}, 
 		return nil, err
 	}
 	
-	// 尝试调用插件的 TestCookie 方法
+	// 解析 body 参数中的 cookie
+	var requestBody map[string]string
+	if body != "" {
+		if err := json.Unmarshal([]byte(body), &requestBody); err != nil {
+			return nil, fmt.Errorf("解析请求体失败: %w", err)
+		}
+	}
+	
+	// 优先尝试调用支持 cookie 参数的 TestCookie 方法
+	if testCookieWithParam, ok := item.Entry.(interface{ TestCookieWithCookie(string) (bool, error) }); ok {
+		testCookie := requestBody["cookie"]
+		return testCookieWithParam.TestCookieWithCookie(testCookie)
+	}
+	
+	// 如果不支持带参数的方法，使用旧的方法（从配置中读取）
 	if testCookie, ok := item.Entry.(interface{ TestCookie() (bool, error) }); ok {
 		return testCookie.TestCookie()
 	}

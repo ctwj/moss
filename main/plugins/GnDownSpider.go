@@ -47,7 +47,7 @@ func NewGnDownSpider() *GnDownSpider {
 func (g *GnDownSpider) Info() *pluginEntity.PluginInfo {
 	return &pluginEntity.PluginInfo{
 		ID:         "GnDownSpider",
-		About:      "采集 gndown.com 文章",
+		About:      "GnDown爬虫",
 		RunEnable:  true,
 		CronEnable: true,
 		PluginInfoPersistent: pluginEntity.PluginInfoPersistent{

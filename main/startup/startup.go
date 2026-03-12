@@ -54,6 +54,7 @@ func initPlugins() {
 		plugins.NewGnDownSpider(),
 		plugins.NewDownloadLimit(),
 		plugins.NewBaiduCloudTransfer(),
+		plugins.NewQuarkCloudTransfer(),
 	)
 
 }

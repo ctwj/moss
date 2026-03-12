@@ -35,7 +35,7 @@ func NewDownloadLimit() *DownloadLimit {
 func (d *DownloadLimit) Info() *pluginEntity.PluginInfo {
 	return &pluginEntity.PluginInfo{
 		ID:         "download_limit",
-		About:      "下载频率限制 - 同一 IP 每天最多下载 N 次（需要启用缓存）",
+		About:      "资源下载次数限制",
 		RunEnable:  false,
 		CronEnable: false,
 		NoOptions:  false,
