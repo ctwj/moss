@@ -96,3 +96,4 @@ main/plugins/themes/
 nginx-moss-dev.conf            # 本地Nginx配置示例
 BaiduPan/
 demo/
+.DS_Store
