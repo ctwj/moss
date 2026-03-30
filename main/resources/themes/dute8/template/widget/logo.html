@@ -3,15 +3,16 @@
     <a href="/" title="{{ Config.Site.Name }}" class="dute-logo-link">
         {{ if logo != "" }}
             <img class="dute-logo-img" src="{{logo}}" alt="{{ Config.Site.Name }}" />
-            <span class="dute-logo-text">
-                <strong class="dute-site-name">{{ Config.Site.Name }}</strong>
-                <small class="dute-site-slogan">www.08rj.com</small>
-            </span>
         {{ else }}
-            <span class="dute-logo-text">
-                <strong class="dute-site-name">{{ Config.Site.Name }}</strong>
-                <small class="dute-site-slogan">www.08rj.com</small>
-            </span>
+            <div class="w-10 h-10 rounded-lg flex items-center justify-center" style="background: linear-gradient(135deg, #3b82f6, #22c55e);">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                </svg>
+            </div>
         {{ end }}
+        <span class="dute-logo-text">
+            <strong class="dute-site-name">{{ Config.Site.Name }}</strong>
+            <small class="dute-site-slogan">www.08rj.com</small>
+        </span>
     </a>
 </div>

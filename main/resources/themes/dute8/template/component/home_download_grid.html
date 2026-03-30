@@ -1,13 +1,21 @@
 {{ block home_download_grid(list,limit=12) }}
 {{ if len(list) == 0 }}
-<div class="dute-empty-tip">
-    <span>暂无内容，敬请期待...</span>
+<div class="dute-empty-state">
+    <div class="dute-empty-state-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" x2="12" y1="15" y2="3"/>
+        </svg>
+    </div>
+    <h3 class="dute-empty-state-title">暂无软件</h3>
+    <p class="dute-empty-state-desc">优质软件即将上线，敬请期待！</p>
 </div>
 {{ else }}
 <div class="dute-download-grid">
     {{ range i, v := list }}
     {{ if i < limit }}
-    <article class="dute-download-item">
+    <article class="dute-download-item card-hover">
         <a class="dute-download-thumb" href="{{ v.URL() }}">
             {{ if v.Thumbnail != "" }}
             <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-src="{{ v.Thumbnail }}" alt="{{ v.Title }}">
@@ -16,6 +24,17 @@
             {{ end }}
         </a>
         <h3><a href="{{ v.URL() }}">{{ v.Title }}</a></h3>
+        {{ if v.Category }}
+        <p><a href="{{ v.Category.URL() }}">{{ v.Category.Name }}</a></p>
+        {{ end }}
+        <!-- 悬浮信息按钮 -->
+        <a href="{{ v.URL() }}" class="dute-info-btn" title="查看详情">
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/>
+                <path d="M12 16v-4"/>
+                <path d="M12 8h.01"/>
+            </svg>
+        </a>
     </article>
     {{ end }}
     {{ end }}

@@ -44,20 +44,11 @@
     {{ Config.Template.Head |raw }}
   </head>
   <body class="dute-page-{{ Page.Name }}" :class="{'h-screen overflow-hidden':showDrawer}" x-cloak>
-    <div class="container dute-shell">
-      {{ include "./header.html" }}
+    {{ include "./header.html" }}
 
-      <div class="dute-main-wrap{{ if Page.Name == `index` }} dute-main-wrap-index{{ end }}">
-        <main class="dute-main">
-          {{yield main()}}
-        </main>
-        {{ if Page.Name != `index` }}
-        <aside class="dute-aside">
-          {{ include "./aside.html" }}
-        </aside>
-        {{ end }}
-      </div>
+    {{yield main()}}
 
+    <div class="container dute-shell dute-footer-wrapper">
       <footer class="dute-footer">
         {{ links := Widget.Link() }}
         {{ cats := Category().Comment("dute8 footer category").Limit(14).List() }}
@@ -87,10 +78,6 @@
           <a href="/download.html">下载说明</a>
           <a href="{{ Config.Router.GetSitemapPath() }}/article.xml">sitemap</a>
         </div>
-        <!-- <div class="dute-footer-runtime">
-          <span>本站已稳定运行：</span>
-          <strong id="dute-uptime" data-start="{{ Utils.AppStartUnix() }}"></strong>
-        </div> -->
         <div class="dute-footer-inner">
           <span class="dute-footer-copy">{{ Config.Template.Footer |raw }}</span>
           <span class="dute-footer-meta">Theme by 零八软件</span>

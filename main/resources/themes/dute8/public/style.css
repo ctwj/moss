@@ -2629,3 +2629,463 @@
   background: rgba(56, 88, 246, 0.2);
   color: var(--dute-primary-dark);
 }
+
+/* ========================================
+   19. 新版设计样式 - 玻璃态 + 渐变 + 动画
+   ======================================== */
+
+/* 19.1 玻璃态导航栏 */
+.glass-nav {
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  background: rgba(255, 255, 255, 0.85) !important;
+  border-bottom: 1px solid rgba(229, 231, 235, 0.5);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+}
+
+.glass-nav .dute-header-main {
+  padding: 12px 20px;
+}
+
+/* 19.2 Hero 区域 */
+.dute-hero-section {
+  position: relative;
+  background: linear-gradient(135deg, #e0f2fe 0%, #f0fdf4 50%, #dbeafe 100%);
+  padding-top: 80px;
+  min-height: 320px;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  margin: -16px -20px 0;
+  padding-left: 20px;
+  padding-right: 20px;
+}
+
+.dute-hero-content {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 24px;
+  width: 100%;
+  position: relative;
+  z-index: 10;
+}
+
+.dute-hero-carousel {
+  border-radius: 12px;
+  overflow: hidden;
+  background: #fff;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+}
+
+.dute-hero-carousel .swiper {
+  aspect-ratio: 16 / 9;
+}
+
+.dute-hero-carousel .swiper-slide img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.dute-hero-text {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.dute-hero-title {
+  font-size: 32px;
+  font-weight: 700;
+  color: #111827;
+  margin: 0 0 8px;
+  line-height: 1.3;
+}
+
+.dute-hero-desc {
+  font-size: 16px;
+  color: #4b5563;
+  margin: 0;
+  line-height: 1.7;
+}
+
+/* 19.3 Blob 动画背景 */
+.dute-blob-bg {
+  position: absolute;
+  inset: 0;
+  opacity: 0.4;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.dute-blob {
+  position: absolute;
+  border-radius: 50%;
+  mix-blend-mode: multiply;
+  filter: blur(40px);
+  animation: blob 7s infinite;
+}
+
+.dute-blob-1 {
+  top: 20%;
+  left: 10%;
+  width: 300px;
+  height: 300px;
+  background: linear-gradient(135deg, #67e8f9, #6ee7b7);
+}
+
+.dute-blob-2 {
+  top: 40%;
+  right: 15%;
+  width: 280px;
+  height: 280px;
+  background: linear-gradient(135deg, #a5f3fc, #93c5fd);
+  animation-delay: 2s;
+}
+
+.dute-blob-3 {
+  bottom: 20%;
+  left: 40%;
+  width: 250px;
+  height: 250px;
+  background: linear-gradient(135deg, #c4b5fd, #fbcfe8);
+  animation-delay: 4s;
+}
+
+@keyframes blob {
+  0% { transform: translate(0px, 0px) scale(1); }
+  33% { transform: translate(30px, -50px) scale(1.1); }
+  66% { transform: translate(-20px, 20px) scale(0.9); }
+  100% { transform: translate(0px, 0px) scale(1); }
+}
+
+/* 19.4 卡片悬浮效果 */
+.card-hover {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.card-hover:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+/* 19.5 渐变卡片背景 */
+.dute-card-gradient-1 {
+  background: linear-gradient(135deg, #e0f2fe 0%, #dcfce7 100%);
+  border-color: #bae6fd;
+}
+
+.dute-card-gradient-2 {
+  background: linear-gradient(135deg, #eff6ff 0%, #e0f2fe 100%);
+  border-color: #bfdbfe;
+}
+
+.dute-card-gradient-3 {
+  background: linear-gradient(135deg, #fff7ed 0%, #fef3c7 100%);
+  border-color: #fed7aa;
+}
+
+/* 19.6 渐变图标背景 */
+.dute-icon-gradient {
+  width: 46px;
+  height: 46px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.dute-icon-gradient-blue {
+  background: linear-gradient(135deg, #60a5fa, #a78bfa);
+}
+
+.dute-icon-gradient-green {
+  background: linear-gradient(135deg, #34d399, #2dd4bf);
+}
+
+.dute-icon-gradient-orange {
+  background: linear-gradient(135deg, #fb923c, #f87171);
+}
+
+.dute-icon-gradient-yellow {
+  background: linear-gradient(135deg, #fbbf24, #fb923c);
+}
+
+.dute-icon-gradient-purple {
+  background: linear-gradient(135deg, #a78bfa, #f472b6);
+}
+
+.dute-icon-gradient-cyan {
+  background: linear-gradient(135deg, #22d3ee, #3b82f6);
+}
+
+/* 19.7 分类标签样式 */
+.dute-category-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.dute-category-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 14px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 9999px;
+  font-size: 13px;
+  color: #374151;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.dute-category-tag:hover {
+  background: #f0f9ff;
+  border-color: #bae6fd;
+  color: #0284c7;
+  text-decoration: none;
+}
+
+.dute-category-tag.active {
+  background: linear-gradient(135deg, #3b82f6, #22c55e);
+  border-color: transparent;
+  color: #fff;
+}
+
+/* 19.8 搜索框渐变按钮 */
+.dute-search-gradient-btn {
+  position: absolute;
+  right: 5px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 42px;
+  height: 28px;
+  border: none;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #3b82f6, #22c55e);
+  color: #fff;
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.dute-search-gradient-btn:hover {
+  background: linear-gradient(135deg, #2563eb, #16a34a);
+  transform: translateY(-50%) scale(1.05);
+}
+
+/* 19.9 菜单下划线动画 */
+.dute-menu .nav-item h2 > a {
+  position: relative;
+}
+
+.dute-menu .nav-item h2 > a::after {
+  content: '';
+  position: absolute;
+  bottom: 4px;
+  left: 0;
+  width: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #3b82f6, #22c55e);
+  transition: width 0.3s ease;
+}
+
+.dute-menu .nav-item h2 > a:hover::after,
+.dute-menu .nav-item.current h2 > a::after {
+  width: 100%;
+}
+
+/* 19.10 软件卡片悬浮按钮 */
+.dute-download-item {
+  position: relative;
+}
+
+.dute-download-item .dute-info-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #3b82f6, #22c55e);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.dute-download-item:hover .dute-info-btn {
+  opacity: 1;
+}
+
+/* 19.11 空状态样式 */
+.dute-empty-state {
+  background: linear-gradient(135deg, #f8fafc, #f1f5f9);
+  border-radius: 16px;
+  padding: 48px 24px;
+  text-align: center;
+}
+
+.dute-empty-state-icon {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #dbeafe, #dcfce7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 16px;
+}
+
+.dute-empty-state-icon svg {
+  width: 32px;
+  height: 32px;
+  color: #3b82f6;
+}
+
+.dute-empty-state-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0 0 8px;
+}
+
+.dute-empty-state-desc {
+  font-size: 14px;
+  color: #6b7280;
+  margin: 0;
+}
+
+/* 19.12 响应式适配 */
+@media (min-width: 768px) {
+  .dute-hero-content {
+    grid-template-columns: 1fr 1fr;
+    gap: 32px;
+  }
+
+  .dute-hero-title {
+    font-size: 40px;
+  }
+
+  .dute-hero-section {
+    min-height: 360px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .dute-hero-content {
+    grid-template-columns: 1.2fr 1fr;
+  }
+
+  .dute-hero-title {
+    font-size: 48px;
+  }
+
+  .dute-hero-section {
+    min-height: 400px;
+  }
+}
+
+@media (max-width: 767px) {
+  .dute-hero-section {
+    padding-top: 70px;
+    min-height: auto;
+    padding-bottom: 24px;
+  }
+
+  .dute-hero-title {
+    font-size: 24px;
+  }
+
+  .dute-hero-desc {
+    font-size: 14px;
+  }
+
+  .dute-blob {
+    width: 150px !important;
+    height: 150px !important;
+  }
+}
+
+/* 19.13 入场动画 */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.6s ease-out forwards;
+}
+
+.animate-delay-100 { animation-delay: 0.1s; }
+.animate-delay-200 { animation-delay: 0.2s; }
+.animate-delay-300 { animation-delay: 0.3s; }
+
+/* 19.14 页面结构修正 */
+.dute-content-wrapper {
+  margin-top: -60px;
+  position: relative;
+  z-index: 20;
+}
+
+.dute-footer-wrapper {
+  margin-top: 0;
+}
+
+.dute-footer-wrapper .dute-footer {
+  margin-top: 0;
+  margin-bottom: 24px;
+}
+
+/* 19.15 Hero 区域修正 */
+.dute-hero-section {
+  margin: 0;
+  padding-left: 0;
+  padding-right: 0;
+  width: 100%;
+}
+
+.dute-hero-section .dute-hero-content {
+  max-width: 1368px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+/* 19.16 内容区上移与 Hero 重叠 */
+.dute-content-wrapper .dute-home-panel {
+  padding-top: 4px;
+}
+
+/* 19.17 移动端响应式修正 */
+@media (max-width: 767px) {
+  .dute-content-wrapper {
+    margin-top: -30px;
+  }
+
+  .dute-hero-section .dute-hero-content {
+    padding: 0 10px;
+  }
+}
+
+/* 19.18 首页 body 背景 */
+.dute-page-index {
+  background: #f8fafc;
+}
+
+/* 19.19 导航栏固定状态 */
+.dute-header.is-fixed {
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+}
