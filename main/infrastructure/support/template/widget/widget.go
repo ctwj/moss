@@ -70,6 +70,13 @@ func (w *Widget) Link() (res []coreEntity.Link) {
 	return
 }
 
+// ArticleCount 统计已发布文章总数
+func (w *Widget) ArticleCount() int64 {
+	count, err := service.Article.CountTotalPublished()
+	log.ErrorShortcut("template widget error", err)
+	return count
+}
+
 // IndexList 首页列表
 func (w *Widget) IndexList() (res []coreEntity.ArticleBase) {
 	return w.simpleList(config.Config.Template.IndexList)
