@@ -411,17 +411,27 @@ func (s *SaveArticleImages) ArticleCreateBefore(item *entity.Article) (err error
 	if !s.EnableOnCreate {
 		return nil
 	}
+	s.ctx.Log.Info("SaveArticleImages: ArticleCreateBefore triggered", zap.Int("id", item.ID), zap.String("title", item.Title))
 	return s.Save(item)
 }
 func (s *SaveArticleImages) ArticleUpdateBefore(item *entity.Article) (err error) {
 	if !s.EnableOnUpdate {
 		return nil
 	}
+	s.ctx.Log.Info("SaveArticleImages: ArticleUpdateBefore triggered", zap.Int("id", item.ID), zap.String("title", item.Title))
 	return s.Save(item)
 }
 
 func (s *SaveArticleImages) Save(item *entity.Article) error {
 	s.initDownReferer()
+
+	// Log original content state before processing
+	s.ctx.Log.Info("SaveArticleImages: starting image processing",
+		zap.Int("id", item.ID),
+		zap.String("title", item.Title),
+		zap.Int("original_content_length", len(item.Content)),
+		zap.String("original_thumbnail", item.Thumbnail))
+
 	doc, err := goquery.NewDocumentFromReader(strings.NewReader(item.Content))
 	if err != nil {
 		s.ctx.Log.Error("format html document error", zap.Error(err), zap.String("title", item.Title))
@@ -435,6 +445,14 @@ func (s *SaveArticleImages) Save(item *entity.Article) error {
 		return err
 	}
 	item.Content = html
+
+	// Log final content state after processing
+	s.ctx.Log.Info("SaveArticleImages: image processing completed",
+		zap.Int("id", item.ID),
+		zap.String("title", item.Title),
+		zap.Int("final_content_length", len(item.Content)),
+		zap.String("final_thumbnail", item.Thumbnail))
+
 	return nil
 }
 

@@ -417,3 +417,202 @@ func BenchmarkInvalidateArticleCache(b *testing.B) {
 		_ = InvalidateArticleCache(url)
 	}
 }
+
+// TestNormalizeCacheKey tests the cache key normalization function
+func TestNormalizeCacheKey(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "empty string",
+			input:    "",
+			expected: "default",
+		},
+		{
+			name:     "single slash",
+			input:    "/",
+			expected: "default",
+		},
+		{
+			name:     "path without leading slash",
+			input:    "article/test",
+			expected: "/article/test",
+		},
+		{
+			name:     "path with trailing slash",
+			input:    "/article/test/",
+			expected: "/article/test",
+		},
+		{
+			name:     "path with leading and trailing slash",
+			input:    "/article/test/",
+			expected: "/article/test",
+		},
+		{
+			name:     "normal path",
+			input:    "/article/test-article",
+			expected: "/article/test-article",
+		},
+		{
+			name:     "path with spaces",
+			input:    "  /article/test  ",
+			expected: "/article/test",
+		},
+		{
+			name:     "multiple trailing slashes",
+			input:    "/article/test//",
+			expected: "/article/test",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := NormalizeCacheKey(tt.input)
+			if result != tt.expected {
+				t.Errorf("NormalizeCacheKey(%q) = %q, expected %q", tt.input, result, tt.expected)
+			}
+		})
+	}
+}
+
+// TestInvalidateArticleCacheWithVerify tests the cache invalidation with verification
+func TestInvalidateArticleCacheWithVerify(t *testing.T) {
+	cleanup := setupTestCache(t)
+	defer cleanup()
+
+	t.Run("invalidate existing cache", func(t *testing.T) {
+		articleURL := "/article/test-verify"
+		content := []byte("<html>test content</html>")
+
+		// Set article cache
+		err := Set("article", NormalizeCacheKey(articleURL), content, time.Hour)
+		if err != nil {
+			t.Fatalf("Failed to set article cache: %v", err)
+		}
+
+		// Invalidate with verify
+		err = InvalidateArticleCacheWithVerify(articleURL)
+		if err != nil {
+			t.Fatalf("Failed to invalidate article cache with verify: %v", err)
+		}
+
+		// Verify cache is deleted
+		_, err = Get("article", NormalizeCacheKey(articleURL))
+		if err == nil {
+			t.Error("Expected error when getting invalidated cache")
+		}
+	})
+
+	t.Run("invalidate non-existing cache", func(t *testing.T) {
+		articleURL := "/article/non-existing"
+
+		// Invalidate non-existing cache should not error
+		err := InvalidateArticleCacheWithVerify(articleURL)
+		if err != nil {
+			t.Fatalf("Expected no error for non-existing cache, got: %v", err)
+		}
+	})
+
+	t.Run("invalidate with normalized key", func(t *testing.T) {
+		// Set cache with normalized key
+		articleURL := "/article/normalized-test/"
+		normalizedKey := NormalizeCacheKey(articleURL)
+		content := []byte("<html>normalized test</html>")
+
+		err := Set("article", normalizedKey, content, time.Hour)
+		if err != nil {
+			t.Fatalf("Failed to set article cache: %v", err)
+		}
+
+		// Invalidate with original URL (should normalize internally)
+		err = InvalidateArticleCacheWithVerify(articleURL)
+		if err != nil {
+			t.Fatalf("Failed to invalidate article cache: %v", err)
+		}
+
+		// Verify cache is deleted
+		_, err = Get("article", normalizedKey)
+		if err == nil {
+			t.Error("Expected error when getting invalidated cache")
+		}
+	})
+}
+
+// TestDeleteWithVerify tests the DeleteWithVerify function
+func TestDeleteWithVerify(t *testing.T) {
+	cleanup := setupTestCache(t)
+	defer cleanup()
+
+	t.Run("delete existing key", func(t *testing.T) {
+		key := "test-delete-verify"
+		value := []byte("test-value")
+
+		// Set value
+		err := Set("article", key, value, time.Hour)
+		if err != nil {
+			t.Fatalf("Failed to set cache: %v", err)
+		}
+
+		// Delete with verify
+		err = DeleteWithVerify("article", key)
+		if err != nil {
+			t.Fatalf("Failed to delete with verify: %v", err)
+		}
+
+		// Verify deleted
+		_, err = Get("article", key)
+		if err == nil {
+			t.Error("Expected error when getting deleted key")
+		}
+	})
+
+	t.Run("delete non-existing key", func(t *testing.T) {
+		// Delete non-existing key should not error
+		err := DeleteWithVerify("article", "non-existing-key")
+		if err != nil {
+			t.Fatalf("Expected no error for non-existing key, got: %v", err)
+		}
+	})
+}
+
+// TestCacheKeyConsistency tests that cache keys are consistent between middleware and invalidation
+func TestCacheKeyConsistency(t *testing.T) {
+	cleanup := setupTestCache(t)
+	defer cleanup()
+
+	// Simulate article URL from entity.URL()
+	articleSlug := "test-article-slug"
+	articleURL := "/article/" + articleSlug
+
+	// Simulate middleware storing cache (uses normalized key)
+	normalizedKey := NormalizeCacheKey(articleURL)
+	content := []byte("<html>article content</html>")
+
+	err := Set("article", normalizedKey, content, time.Hour)
+	if err != nil {
+		t.Fatalf("Failed to set article cache: %v", err)
+	}
+
+	// Verify cache can be retrieved with same normalized key
+	got, err := Get("article", normalizedKey)
+	if err != nil {
+		t.Fatalf("Failed to get article cache: %v", err)
+	}
+	if string(got) != string(content) {
+		t.Errorf("Expected %s, got %s", content, got)
+	}
+
+	// Invalidate using InvalidateArticleCacheWithVerify (should use same normalization)
+	err = InvalidateArticleCacheWithVerify(articleURL)
+	if err != nil {
+		t.Fatalf("Failed to invalidate article cache: %v", err)
+	}
+
+	// Verify cache is deleted
+	_, err = Get("article", normalizedKey)
+	if err == nil {
+		t.Error("Expected error when getting invalidated cache")
+	}
+}

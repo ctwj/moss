@@ -37,6 +37,11 @@ func (d *PreBuildArticleCache) Load(ctx *pluginEntity.Plugin) error {
 }
 
 func (d *PreBuildArticleCache) ArticleCreateAfter(item *entity.Article) {
+	d.ctx.Log.Info("ArticleCreateAfter triggered",
+		zap.Int("id", item.ID),
+		zap.String("title", item.Title),
+		zap.Bool("enable_on_create", d.EnableOnCreate))
+
 	if d.EnableOnCreate {
 		// Delete any existing cache first
 		d.invalidateCache(item)
@@ -49,6 +54,11 @@ func (d *PreBuildArticleCache) ArticleCreateAfter(item *entity.Article) {
 }
 
 func (d *PreBuildArticleCache) ArticleUpdateAfter(item *entity.Article) {
+	d.ctx.Log.Info("ArticleUpdateAfter triggered",
+		zap.Int("id", item.ID),
+		zap.String("title", item.Title),
+		zap.Bool("enable_on_update", d.EnableOnUpdate))
+
 	// Always invalidate cache on update to ensure consistency
 	d.invalidateCache(item)
 	if d.EnableOnUpdate {
@@ -63,28 +73,44 @@ func (d *PreBuildArticleCache) ArticleUpdateAfter(item *entity.Article) {
 // invalidateCache deletes the cached article page
 func (d *PreBuildArticleCache) invalidateCache(item *entity.Article) {
 	if !config.Config.Cache.Enable {
+		d.ctx.Log.Debug("cache is disabled, skipping invalidation", zap.Int("id", item.ID))
 		return
 	}
 	option := config.Config.Cache.GetOption("article")
 	if option == nil || !option.Enable {
+		d.ctx.Log.Debug("article cache option is disabled, skipping invalidation", zap.Int("id", item.ID))
 		return
 	}
-	if err := cache.InvalidateArticleCache(item.URL()); err != nil {
+
+	articleURL := item.URL()
+	d.ctx.Log.Info("invalidating article cache",
+		zap.Int("id", item.ID),
+		zap.String("title", item.Title),
+		zap.String("url", articleURL))
+
+	if err := cache.InvalidateArticleCacheWithVerify(articleURL); err != nil {
 		d.ctx.Log.Warn("failed to invalidate article cache", zap.Error(err), zap.Int("id", item.ID))
+	} else {
+		d.ctx.Log.Info("article cache invalidated successfully", zap.Int("id", item.ID), zap.String("url", articleURL))
 	}
 }
 
 // invalidateHomePageCache clears the home page cache
 func (d *PreBuildArticleCache) invalidateHomePageCache() {
 	if !config.Config.Cache.Enable {
+		d.ctx.Log.Debug("cache is disabled, skipping home page invalidation")
 		return
 	}
 	option := config.Config.Cache.GetOption("home")
 	if option == nil || !option.Enable {
+		d.ctx.Log.Debug("home cache option is disabled, skipping invalidation")
 		return
 	}
+	d.ctx.Log.Info("invalidating home page cache")
 	if err := cache.InvalidateHomePageCache(); err != nil {
 		d.ctx.Log.Warn("failed to invalidate home page cache", zap.Error(err))
+	} else {
+		d.ctx.Log.Info("home page cache invalidated successfully")
 	}
 }
 
@@ -99,6 +125,15 @@ func (d *PreBuildArticleCache) build(item *entity.Article, action string) {
 		d.ctx.Log.Warn("article cache config is disabled")
 		return
 	}
+
+	// Log article data before building cache to verify it's updated
+	d.ctx.Log.Info("building article cache",
+		zap.String("action", action),
+		zap.Int("id", item.ID),
+		zap.String("title", item.Title),
+		zap.String("url", item.FullURL()),
+		zap.Int("content_length", len(item.Content)),
+		zap.String("thumbnail", item.Thumbnail))
 
 	bytes, err := appService.Render.Article(item)
 	if err != nil {
