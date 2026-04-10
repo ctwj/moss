@@ -308,3 +308,26 @@ func (s *TagService) PseudorandomList(ctx *context.Context) (res []entity.Tag, e
 	}
 	return s.ListByIds(ctx, pseudorandomIds(maxID, ctx.Limit))
 }
+
+// ListWithArticleCount 获取标签列表（带文章数量）
+func (s *TagService) ListWithArticleCount(ctx *context.Context, orderByCountDesc bool) (res []repository.TagWithCount, err error) {
+	return repository.Tag.ListWithArticleCount(ctx, orderByCountDesc)
+}
+
+// ListForAutoLink 获取用于自动链接的标签列表（前N个，按文章数量降序）
+func (s *TagService) ListForAutoLink(limit int) (res []entity.Tag, err error) {
+	if limit <= 0 {
+		limit = 100
+	}
+	var ctx = &context.Context{Limit: limit}
+	tagsWithCount, err := repository.Tag.ListWithArticleCount(ctx, true)
+	if err != nil || len(tagsWithCount) == 0 {
+		return
+	}
+	// 转换为 Tag 切片
+	res = make([]entity.Tag, len(tagsWithCount))
+	for i, tc := range tagsWithCount {
+		res[i] = tc.Tag
+	}
+	return
+}

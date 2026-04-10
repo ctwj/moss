@@ -10,7 +10,7 @@
             猜你喜欢
         </h2>
         <div class="space-y-3">
-            {{ guessList := Widget.IndexList() }}
+            {{ guessList := Article().Limit(8).PseudorandomList() }}
             {{ range i, v := guessList }}
             {{ if i < 8 }}
             <a href="{{ v.URL() }}" class="bg-white rounded-xl p-3 border border-gray-200 hover:shadow-md transition-shadow cursor-pointer flex items-center block">

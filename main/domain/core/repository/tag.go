@@ -106,3 +106,30 @@ func (r *TagRepo) ListBeforeCreateTime(ctx *context.Context, t int64) (res []ent
 	err = db.DB.Model(entity.Tag{}).Scopes(gormx.Context(ctx, gormx.WhereCreateTimeBefore(t))).Find(&res).Error
 	return
 }
+
+// TagWithCount 标签带文章数量
+type TagWithCount struct {
+	entity.Tag
+	ArticleCount int64 `gorm:"column:article_count" json:"article_count"`
+}
+
+// ListWithArticleCount 获取标签列表（带文章数量）
+func (r *TagRepo) ListWithArticleCount(ctx *context.Context, orderByCountDesc bool) (res []TagWithCount, err error) {
+	db := db.DB.Model(entity.Tag{}).
+		Select("tag.*, COUNT(mapping_tag.tag_id) as article_count").
+		Joins("LEFT JOIN mapping_tag ON tag.id = mapping_tag.tag_id").
+		Group("tag.id")
+
+	if orderByCountDesc {
+		db = db.Order("article_count DESC, tag.id DESC")
+	} else {
+		db = db.Order("tag.id DESC")
+	}
+
+	if ctx != nil && ctx.Limit > 0 {
+		db = db.Limit(ctx.Limit)
+	}
+
+	err = db.Find(&res).Error
+	return
+}
