@@ -16,9 +16,9 @@
             <a href="{{ v.URL() }}" class="bg-white rounded-xl p-3 border border-gray-200 hover:shadow-md transition-shadow cursor-pointer flex items-center block">
                 <div class="w-10 h-10 bg-gradient-to-br from-primary-400 to-secondary-500 rounded-lg flex items-center justify-center mr-3 flex-shrink-0 overflow-hidden">
                     {{ if v.Thumbnail != "" }}
-                    <img src="{{ v.Thumbnail }}" alt="{{ v.Title }}" class="w-10 h-10 object-cover">
+                    <img src="{{ v.Thumbnail }}" alt="{{ v.Title }}" class="w-10 h-10 object-cover" loading="lazy" decoding="async" width="40" height="40">
                     {{ else }}
-                    <i class="fas fa-cube text-white text-xs"></i>
+                    <i class="fas fa-cube text-white text-xs" aria-hidden="true"></i>
                     {{ end }}
                 </div>
                 <h3 class="font-medium text-gray-900 truncate flex-1">{{ v.Title }}</h3>
@@ -85,9 +85,9 @@
             <div class="flex items-start">
                 <div class="w-12 h-12 bg-gradient-to-br from-primary-400 to-secondary-500 rounded-lg flex items-center justify-center mr-3 flex-shrink-0 overflow-hidden">
                     {{ if v.Thumbnail != "" }}
-                    <img src="{{ v.Thumbnail }}" alt="{{ v.Title }}" class="w-12 h-12 object-cover">
+                    <img src="{{ v.Thumbnail }}" alt="{{ v.Title }}" class="w-12 h-12 object-cover" loading="lazy" decoding="async" width="48" height="48">
                     {{ else }}
-                    <i class="fas fa-cube text-white text-sm"></i>
+                    <i class="fas fa-cube text-white text-sm" aria-hidden="true"></i>
                     {{ end }}
                 </div>
                 <div class="flex-1 min-w-0 overflow-hidden">
@@ -130,7 +130,7 @@
         {{ range i, v := globalList }}
         <a href="{{ v.URL() }}" class="bg-white rounded-xl p-4 border border-gray-200 card-hover hover:shadow-lg block overflow-hidden">
             {{ if v.Thumbnail != "" }}
-            <img src="{{ v.Thumbnail }}" alt="{{ v.Title }}" class="w-full h-40 object-cover rounded-lg mb-3">
+            <img src="{{ v.Thumbnail }}" alt="{{ v.Title }}" class="w-full h-40 object-cover rounded-lg mb-3" loading="lazy" decoding="async">
             {{ end }}
             <h3 class="font-semibold text-gray-900 text-base mb-2 truncate">{{ v.Title }}</h3>
             <p class="text-sm text-gray-500 line-clamp-2 mb-3">{{ v.Description }}</p>

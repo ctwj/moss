@@ -6,6 +6,58 @@ body {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
+/* Accessibility - Screen Reader Only */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* Skip Link */
+.skip-link {
+    position: absolute;
+    top: -40px;
+    left: 0;
+    background: #00aaff;
+    color: white;
+    padding: 8px 16px;
+    z-index: 100;
+    transition: top 0.3s;
+}
+
+.skip-link:focus {
+    top: 0;
+}
+
+/* Focus Styles for Accessibility */
+*:focus-visible {
+    outline: 2px solid #00aaff;
+    outline-offset: 2px;
+}
+
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+    outline: 2px solid #00aaff;
+    outline-offset: 2px;
+    box-shadow: 0 0 0 4px rgba(0, 170, 255, 0.15);
+}
+
+/* Focus indicator for cards */
+a:focus-visible.card-hover {
+    outline: 2px solid #00aaff;
+    outline-offset: 4px;
+    box-shadow: 0 0 0 4px rgba(0, 170, 255, 0.15), 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+}
+
 /* Glass Navigation */
 .glass-nav {
     backdrop-filter: blur(10px);
@@ -236,6 +288,41 @@ body {
     /* Add dark mode styles here if needed */
 }
 
+/* Reduced Motion Support */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+    
+    .card-hover:hover {
+        transform: none;
+    }
+    
+    .animate-blob {
+        animation: none;
+    }
+    
+    .category-tag:hover {
+        transform: none;
+    }
+}
+
+/* High Contrast Mode Support */
+@media (prefers-contrast: high) {
+    .card-hover {
+        border-width: 2px;
+    }
+    
+    a:focus-visible {
+        outline-width: 3px;
+    }
+}
+
 /* Print Styles */
 @media print {
     .glass-nav,
@@ -251,5 +338,17 @@ body {
     
     .animate-blob {
         animation: none;
+    }
+    
+    /* Ensure links show URL in print */
+    a[href]:after {
+        content: " (" attr(href) ")";
+        font-size: 0.8em;
+        color: #666;
+    }
+    
+    a[href^="#"]:after,
+    a[href^="javascript:"]:after {
+        content: "";
     }
 }
