@@ -74,8 +74,9 @@ func (e *GenerateSlugEvent) CategoryCreateBefore(item *entity.Category) (err err
 }
 
 func (e *GenerateSlugEvent) TagCreateBefore(item *entity.Tag) (err error) {
-	if item.Slug == "" {
-		item.Slug, err = e.makeSlug()
+	if item.Slug == "" && item.Name != "" {
+		// Tag 直接使用 name 作为 slug
+		item.Slug = item.Name
 	}
 	return
 }

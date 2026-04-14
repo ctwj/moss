@@ -4,8 +4,41 @@
 {{block main()}}
 {{ res := Widget.CategoryPageList(Data.ID, Page.PageNumber) }}
 {{ children := Category().Children(Data.ID) }}
+{{ ancestors := Widget.Breadcrumb(Data.ID) }}
 
 <div class="container mx-auto max-w-6xl">
+    <!-- BreadcrumbList Schema -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [{
+        "@type": "ListItem",
+        "position": 1,
+        "name": "首页",
+        "item": "{{ Config.Site.URL }}/"
+      }{{ range i, v := ancestors }},{
+        "@type": "ListItem",
+        "position": {{ i + 2 }},
+        "name": "{{ v.Name }}",
+        "item": "{{ Config.Site.URL }}{{ v.URL() }}"
+      }{{ end }}]
+    }
+    </script>
+    
+    <!-- Breadcrumb Navigation -->
+    <nav class="mb-6" aria-label="面包屑导航">
+        <ol class="flex items-center space-x-2 text-sm text-gray-500 flex-wrap">
+            <li><a href="/" class="hover:text-primary-600 transition-colors">首页</a></li>
+            {{ range i, v := ancestors }}
+            <li><i class="fas fa-chevron-right text-xs" aria-hidden="true"></i></li>
+            <li>
+                <a href="{{ v.URL() }}" class="hover:text-primary-600 transition-colors">{{ v.Name }}</a>
+            </li>
+            {{ end }}
+        </ol>
+    </nav>
+    
     <!-- 标题区域 -->
     <div class="bg-gradient-to-r from-primary-500 to-secondary-500 rounded-2xl p-8 mb-8">
         <h1 class="text-3xl font-bold text-white mb-2">{{ Data.Name }}</h1>
@@ -39,9 +72,9 @@
             <div class="flex items-start">
                 <div class="w-12 h-12 bg-gradient-to-br from-primary-400 to-secondary-500 rounded-lg flex items-center justify-center mr-3 flex-shrink-0 overflow-hidden">
                     {{ if v.Thumbnail != "" }}
-                    <img src="{{ v.Thumbnail }}" alt="{{ v.Title }}" class="w-12 h-12 object-cover">
+                    <img src="{{ v.Thumbnail }}" alt="{{ v.Title }}" class="w-12 h-12 object-cover" loading="lazy" decoding="async" width="48" height="48">
                     {{ else }}
-                    <i class="fas fa-cube text-white text-sm"></i>
+                    <i class="fas fa-cube text-white text-sm" aria-hidden="true"></i>
                     {{ end }}
                 </div>
                 <div class="flex-1 min-w-0 overflow-hidden">

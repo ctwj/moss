@@ -4,9 +4,12 @@
 <!-- Article Open Graph -->
 <meta property="og:type" content="article" />
 <meta property="article:published_time" content="{{ Data.CreateTimeFormat }}" />
+<meta property="article:modified_time" content="{{ Data.CreateTimeFormat }}" />
 {{ if Data.Thumbnail != "" }}
 <meta property="og:image" content="{{ Data.Thumbnail }}" />
 <meta name="twitter:image" content="{{ Data.Thumbnail }}" />
+{{ else }}
+<meta property="og:image" content="{{ Config.Site.URL }}/upload/logo" />
 {{ end }}
 <meta property="og:url" content="{{ Config.Site.URL }}{{ Page.Path }}" />
 
@@ -18,7 +21,7 @@
 <meta property="og:description" content="{{ Data.Description }}" />
 {{ end }}
 
-<!-- Software Application Schema with FAQ -->
+<!-- Software Application Schema -->
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -28,24 +31,28 @@
   "description": "{{ Data.Description }}",
   "datePublished": "{{ Data.CreateTimeFormat }}",
   "dateModified": "{{ Data.CreateTimeFormat }}",
-  "image": "{{ if Data.Thumbnail }}{{ Data.Thumbnail }}{{ end }}",
+  {{ if Data.Thumbnail }}"image": "{{ Data.Thumbnail }}",{{ end }}
   "url": "{{ Config.Site.URL }}{{ Page.Path }}",
   "author": {
     "@type": "Organization",
-    "name": "{{ Config.Site.Name }}"
+    "name": "{{ Config.Site.Name }}",
+    "url": "{{ Config.Site.URL }}"
   },
   "publisher": {
     "@type": "Organization",
     "name": "{{ Config.Site.Name }}",
-    "url": "{{ Config.Site.URL }}"
+    "url": "{{ Config.Site.URL }}"{{ if Config.Template.Logo != "" }},
+    "logo": {
+      "@type": "ImageObject",
+      "url": "{{ Config.Site.URL }}/upload/logo"
+    }{{ end }}
   },
   "mainEntityOfPage": {
     "@type": "WebPage",
     "@id": "{{ Config.Site.URL }}{{ Page.Path }}"
   },
   "articleSection": "{{ if Data.Category }}{{ Data.Category.Name }}{{ end }}",
-  "keywords": "{{ if len(Data.KeywordList) > 0 }}{{ range i, k := Data.KeywordList }}{{ if i > 0 }}, {{ end }}{{ k }}{{ end }}{{ end }}",
-  "wordCount": "{{ len(Data.Content) }}"
+  "keywords": "{{ if len(Data.KeywordList) > 0 }}{{ range i, k := Data.KeywordList }}{{ if i > 0 }}, {{ end }}{{ k }}{{ end }}{{ end }}"
 }
 </script>
 
@@ -80,13 +87,21 @@
 
 <div class="container mx-auto max-w-6xl">
     <!-- Breadcrumb -->
-    <nav class="mb-6">
-        <ol class="flex items-center space-x-2 text-sm text-gray-500 flex-wrap">
-            <li><a href="/" class="hover:text-primary-600 transition-colors">首页</a></li>
+    <nav class="mb-6" aria-label="面包屑导航">
+        <ol class="flex items-center space-x-2 text-sm text-gray-500 flex-wrap" itemscope itemtype="https://schema.org/BreadcrumbList">
+            <li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+                <a href="/" itemprop="item" class="hover:text-primary-600 transition-colors">
+                    <span itemprop="name">首页</span>
+                </a>
+                <meta itemprop="position" content="1" />
+            </li>
             {{ range i, v := ancestors }}
-            <li><i class="fas fa-chevron-right text-xs"></i></li>
-            <li>
-                <a href="{{ v.URL() }}" class="hover:text-primary-600 transition-colors">{{ v.Name }}</a>
+            <li><i class="fas fa-chevron-right text-xs" aria-hidden="true"></i></li>
+            <li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+                <a href="{{ v.URL() }}" itemprop="item" class="hover:text-primary-600 transition-colors">
+                    <span itemprop="name">{{ v.Name }}</span>
+                </a>
+                <meta itemprop="position" content="{{ i + 2 }}" />
             </li>
             {{ end }}
         </ol>
@@ -191,8 +206,8 @@
             <div class="bg-white rounded-2xl shadow-sm border border-gray-100 mb-6 sticky top-24 overflow-hidden">
                 {{ if Data.Thumbnail != "" }}
                 <div class="relative">
-                    <img src="{{ Data.Thumbnail }}" alt="{{ Data.Title }}" class="w-full h-40 object-cover">
-                    <div class="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent"></div>
+                    <img src="{{ Data.Thumbnail }}" alt="{{ Data.Title }}" class="w-full h-40 object-cover" loading="lazy" decoding="async">
+                    <div class="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" aria-hidden="true"></div>
                 </div>
                 {{ end }}
                 

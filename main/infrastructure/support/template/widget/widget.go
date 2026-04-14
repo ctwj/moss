@@ -112,47 +112,48 @@ func (w *Widget) TagCloud() (res []coreEntity.Tag) {
 		return
 	}
 	var err error
-	limit := config.Config.Template.TagCloud.Limit
 
-	// 如果指定了 Select，使用指定的标签ID
+	// 指定了标签ID列表时使用原有逻辑
 	if len(config.Config.Template.TagCloud.Select) > 0 {
-		var ctx = context.NewContextWithComment(1000, "", "Widget.TagCloud")
+		var ctx = context.NewContextWithComment(config.Config.Template.TagCloud.Limit, config.Config.Template.TagCloud.Order, "Widget.TagCloud")
 		res, err = service.Tag.ListByIds(ctx, config.Config.Template.TagCloud.Select)
-	} else {
-		// 获取足够多的标签（最多500个），用于按文章数量排序
-		var ctx = context.NewContextWithComment(500, "", "Widget.TagCloud")
-		res, err = service.Tag.List(ctx)
-	}
-	log.ErrorShortcut("template widget error", err)
-	if len(res) == 0 {
+		log.ErrorShortcut("template widget error", err)
+		if len(res) == 0 {
+			return
+		}
+		// 按文章数量降序排序
+		type tagWithCount struct {
+			tag    coreEntity.Tag
+			count  int64
+		}
+		var tagsWithCount []tagWithCount
+		for _, tag := range res {
+			count, _ := service.Mapping.CountByTagID(tag.ID)
+			tagsWithCount = append(tagsWithCount, tagWithCount{tag: tag, count: count})
+		}
+		// 降序排序
+		sort.Slice(tagsWithCount, func(i, j int) bool {
+			return tagsWithCount[i].count > tagsWithCount[j].count
+		})
+		// 转换回 Tag 切片
+		res = make([]coreEntity.Tag, len(tagsWithCount))
+		for i, tc := range tagsWithCount {
+			res[i] = tc.tag
+		}
 		return
 	}
-
-	// 按文章数量降序排序
-	type tagWithCount struct {
-		tag   coreEntity.Tag
-		count int64
-	}
-	var tagsWithCount []tagWithCount
-	for _, tag := range res {
-		count, _ := service.Mapping.CountByTagID(tag.ID)
-		tagsWithCount = append(tagsWithCount, tagWithCount{tag: tag, count: count})
-	}
-
-	// 使用 sort.Slice 进行降序排序（按文章数量）
-	sort.Slice(tagsWithCount, func(i, j int) bool {
-		return tagsWithCount[i].count > tagsWithCount[j].count
-	})
-
-	// 限制数量
-	if len(tagsWithCount) > limit {
-		tagsWithCount = tagsWithCount[:limit]
+	// 使用一条 SQL 查询标签及其文章数量（按文章数量降序）
+	var ctx = context.NewContextWithComment(config.Config.Template.TagCloud.Limit, config.Config.Template.TagCloud.Order, "Widget.TagCloud")
+	tagsWithCount, err := service.Tag.ListWithArticleCount(ctx, true)
+	log.ErrorShortcut("template widget error", err)
+	if len(tagsWithCount) == 0 {
+		return
 	}
 
 	// 转换回 Tag 切片
 	res = make([]coreEntity.Tag, len(tagsWithCount))
 	for i, tc := range tagsWithCount {
-		res[i] = tc.tag
+		res[i] = tc.Tag
 	}
 	return
 }

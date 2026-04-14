@@ -11,6 +11,7 @@ import (
 	"moss/infrastructure/support/template"
 	"net/url"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -136,7 +137,8 @@ func (r *RenderService) Article(item *entity.Article) (_ []byte, err error) {
 	articleMap["Thumbnail"] = item.Thumbnail
 	articleMap["Description"] = item.Description
 	articleMap["Keywords"] = item.Keywords
-	articleMap["Content"] = item.Content
+	// 替换内容中的标签为链接
+	articleMap["Content"] = r.replaceTagLinks(item.Content)
 	articleMap["Extends"] = item.Extends
 	articleMap["Res"] = item.Res
 
@@ -364,4 +366,32 @@ func computePageTotal(count int64, limit int) int {
 		total++
 	}
 	return total
+}
+
+// replaceTagLinks 将文章内容中的标签替换为链接
+func (r *RenderService) replaceTagLinks(content string) string {
+	if content == "" {
+		return content
+	}
+	// 获取前100个标签
+	tags, err := service.Tag.ListForAutoLink(100)
+	if err != nil || len(tags) == 0 {
+		return content
+	}
+	// 按名称长度降序排序，确保长词优先匹配
+	sort.Slice(tags, func(i, j int) bool {
+		return len(tags[i].Name) > len(tags[j].Name)
+	})
+	// 简单替换：将标签名称替换为链接
+	// 注意：这里只替换一次，避免嵌套替换问题
+	result := content
+	for _, tag := range tags {
+		if tag.Name == "" {
+			continue
+		}
+		// 替换标签名为链接
+		link := fmt.Sprintf(`<a href="/tag/%s">%s</a>`, tag.Slug, tag.Name)
+		result = strings.ReplaceAll(result, tag.Name, link)
+	}
+	return result
 }

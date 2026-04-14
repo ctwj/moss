@@ -7,8 +7,32 @@ import (
 	"strings"
 )
 
+// isStaticFile 检查是否为静态资源文件（图片、样式、脚本、字体）
+func isStaticFile(path string) bool {
+	return strings.HasSuffix(path, ".js") ||
+		strings.HasSuffix(path, ".css") ||
+		strings.HasSuffix(path, ".png") ||
+		strings.HasSuffix(path, ".jpg") ||
+		strings.HasSuffix(path, ".jpeg") ||
+		strings.HasSuffix(path, ".gif") ||
+		strings.HasSuffix(path, ".svg") ||
+		strings.HasSuffix(path, ".ico") ||
+		strings.HasSuffix(path, ".woff") ||
+		strings.HasSuffix(path, ".woff2") ||
+		strings.HasSuffix(path, ".ttf") ||
+		strings.HasSuffix(path, ".eot") ||
+		strings.HasSuffix(path, ".webp")
+}
+
 func HttpLog(ctx *fiber.Ctx) error {
 	next := ctx.Next()
+
+	// 过滤静态资源，不记录日志
+	path := ctx.Path()
+	if isStaticFile(path) {
+		return next
+	}
+
 	if log.Visitor.IsClosed() && log.Spider.IsClosed() {
 		return next
 	}
@@ -22,7 +46,7 @@ func HttpLog(ctx *fiber.Ctx) error {
 		Referer:     string(ctx.Context().Referer()),
 		UserAgent:   string(ctx.Context().UserAgent()),
 		Headers:     string(ctx.Request().Header.RawHeaders()),
-		Path:        ctx.Path(),
+		Path:        path,
 	})
 	return next
 }
