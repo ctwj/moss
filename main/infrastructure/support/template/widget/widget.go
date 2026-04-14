@@ -13,6 +13,7 @@ import (
 	"moss/infrastructure/general/constant"
 	"moss/infrastructure/persistent/db"
 	"moss/infrastructure/support/log"
+	"sort"
 )
 
 type Widget struct {
@@ -111,39 +112,43 @@ func (w *Widget) TagCloud() (res []coreEntity.Tag) {
 		return
 	}
 	var err error
-	var ctx = context.NewContextWithComment(config.Config.Template.TagCloud.Limit, config.Config.Template.TagCloud.Order, "Widget.TagCloud")
+	limit := config.Config.Template.TagCloud.Limit
+
+	// 如果指定了 Select，使用指定的标签ID
 	if len(config.Config.Template.TagCloud.Select) > 0 {
+		var ctx = context.NewContextWithComment(1000, "", "Widget.TagCloud")
 		res, err = service.Tag.ListByIds(ctx, config.Config.Template.TagCloud.Select)
 	} else {
+		// 获取足够多的标签（最多500个），用于按文章数量排序
+		var ctx = context.NewContextWithComment(500, "", "Widget.TagCloud")
 		res, err = service.Tag.List(ctx)
 	}
 	log.ErrorShortcut("template widget error", err)
 	if len(res) == 0 {
 		return
 	}
+
 	// 按文章数量降序排序
 	type tagWithCount struct {
-		tag    coreEntity.Tag
-		count  int64
+		tag   coreEntity.Tag
+		count int64
 	}
 	var tagsWithCount []tagWithCount
 	for _, tag := range res {
 		count, _ := service.Mapping.CountByTagID(tag.ID)
 		tagsWithCount = append(tagsWithCount, tagWithCount{tag: tag, count: count})
 	}
-	// 降序排序
-	for i := 0; i < len(tagsWithCount)-1; i++ {
-		for j := i + 1; j < len(tagsWithCount); j++ {
-			if tagsWithCount[j].count > tagsWithCount[i].count {
-				tagsWithCount[i], tagsWithCount[j] = tagsWithCount[j], tagsWithCount[i]
-			}
-		}
-	}
+
+	// 使用 sort.Slice 进行降序排序（按文章数量）
+	sort.Slice(tagsWithCount, func(i, j int) bool {
+		return tagsWithCount[i].count > tagsWithCount[j].count
+	})
+
 	// 限制数量
-	limit := config.Config.Template.TagCloud.Limit
 	if len(tagsWithCount) > limit {
 		tagsWithCount = tagsWithCount[:limit]
 	}
+
 	// 转换回 Tag 切片
 	res = make([]coreEntity.Tag, len(tagsWithCount))
 	for i, tc := range tagsWithCount {

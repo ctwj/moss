@@ -250,15 +250,25 @@
             <!-- Tag Cloud -->
             {{ tagCloud := Widget.TagCloud() }}
             {{ if len(tagCloud) > 0 }}
-            <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+            <div class="bg-gradient-to-br from-primary-50/50 to-blue-50/50 rounded-2xl p-5 shadow-sm border border-primary-100/50">
                 <h3 class="text-base font-bold text-gray-900 mb-4 flex items-center">
-                    <i class="fas fa-tags text-primary-500 mr-2"></i>
+                    <div class="w-8 h-8 bg-gradient-to-br from-primary-500 to-blue-500 rounded-lg flex items-center justify-center mr-2">
+                        <i class="fas fa-tags text-white text-sm"></i>
+                    </div>
                     标签云
                 </h3>
                 <div class="flex flex-wrap gap-2">
                     {{ range i, t := tagCloud }}
-                    <a href="{{ t.URL() }}" class="px-3 py-1 bg-gray-100 text-gray-700 text-sm rounded-full hover:bg-primary-100 hover:text-primary-700 transition-colors">
-                        {{ t.Name }}
+                    {{ tagSize := "text-sm" }}
+                    {{ if i < 3 }}
+                    {{ tagSize = "text-base font-medium" }}
+                    {{ else if i < 7 }}
+                    {{ tagSize = "text-sm" }}
+                    {{ else }}
+                    {{ tagSize = "text-xs" }}
+                    {{ end }}
+                    <a href="{{ t.URL() }}" class="inline-flex items-center px-3 py-1.5 bg-white text-gray-700 {{ tagSize }} rounded-full border border-gray-200 hover:border-primary-300 hover:bg-gradient-to-r hover:from-primary-50 hover:to-blue-50 hover:text-primary-700 transition-all duration-200 shadow-sm hover:shadow">
+                        <i class="fas fa-hashtag mr-1 text-xs opacity-50"></i>{{ t.Name }}
                     </a>
                     {{ end }}
                 </div>
