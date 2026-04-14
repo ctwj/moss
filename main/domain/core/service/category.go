@@ -294,13 +294,11 @@ func (s *CategoryService) ListAfterCreateTime(ctx *context.Context, t int64) (re
 	return
 }
 
-// PseudorandomList 伪随机列表
+// PseudorandomList 伪随机列表（使用 SQL RANDOM() 更高效）
 func (s *CategoryService) PseudorandomList(ctx *context.Context) (res []entity.Category, err error) {
-	maxID, err := repository.Category.MaxID()
-	if err != nil {
-		return
-	}
-	return s.ListByIds(ctx, pseudorandomIds(maxID, ctx.Limit))
+	res, err = repository.Category.RandomList(ctx)
+	s.listAfterEvents(res)
+	return
 }
 
 // GetWithAncestors 获取分类和其祖先

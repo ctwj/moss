@@ -66,6 +66,12 @@ func (r *CategoryRepo) MaxID() (res int, err error) {
 	return
 }
 
+// RandomList 使用 SQL 随机获取分类列表（更高效）
+func (r *CategoryRepo) RandomList(ctx *context.Context) (res []entity.Category, err error) {
+	err = db.DB.Model(&entity.Category{}).Scopes(gormx.Context(ctx)).Order("RANDOM()").Find(&res).Error
+	return
+}
+
 // CountByWhere 通过where获取统计结果
 func (r *CategoryRepo) CountByWhere(where *context.Where) (res int64, err error) {
 	err = db.DB.Model(entity.Category{}).Scopes(gormx.Where(where)).Count(&res).Error

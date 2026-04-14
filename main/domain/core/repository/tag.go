@@ -78,6 +78,12 @@ func (r *TagRepo) MaxID() (res int, err error) {
 	return
 }
 
+// RandomList 使用 SQL 随机获取标签列表（更高效）
+func (r *TagRepo) RandomList(ctx *context.Context) (res []entity.Tag, err error) {
+	err = db.DB.Model(entity.Tag{}).Scopes(gormx.Context(ctx)).Order("RANDOM()").Find(&res).Error
+	return
+}
+
 ///////////////////////////////////////////////
 
 // List 调用列表
