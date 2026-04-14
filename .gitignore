@@ -87,6 +87,9 @@ temp/
 conf.toml
 *.local
 
+# Worktrees
+.worktrees/
+
 # Moss specific
 main/moss.db*
 main/moss.db-*
