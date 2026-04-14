@@ -1,0 +1,22 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom utilities used in 08rj theme */
+@layer components {
+  .glass-nav {
+    @apply backdrop-blur-sm bg-white/90;
+  }
+
+  .card-hover {
+    @apply transition-all duration-300 ease-in-out;
+  }
+
+  .category-tag {
+    @apply transition-all duration-200 ease-in-out;
+  }
+
+  .search-input:focus {
+    @apply outline-none;
+  }
+}
