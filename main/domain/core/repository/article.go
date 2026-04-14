@@ -194,6 +194,12 @@ func (r *ArticleRepo) MaxID() (res int, err error) {
 	return
 }
 
+// RandomList 使用 SQL 随机获取文章列表（更高效）
+func (r *ArticleRepo) RandomList(ctx *context.Context) (res []entity.ArticleBase, err error) {
+	err = db.DB.Model(&entity.ArticleBase{}).Scopes(gormx.Context(ctx)).Order("RANDOM()").Find(&res).Error
+	return
+}
+
 // List 调用文章列表
 func (r *ArticleRepo) List(ctx *context.Context) (res []entity.ArticleBase, err error) {
 	err = db.DB.Model(&entity.ArticleBase{}).Scopes(gormx.Context(ctx)).Find(&res).Error
