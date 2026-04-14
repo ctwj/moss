@@ -1,6 +1,7 @@
 package widget
 
 import (
+	"encoding/json"
 	"go.uber.org/zap"
 	"math"
 	"moss/domain/config"
@@ -12,8 +13,10 @@ import (
 	coreUtils "moss/domain/core/utils"
 	"moss/infrastructure/general/constant"
 	"moss/infrastructure/persistent/db"
+	"moss/infrastructure/support/cache"
 	"moss/infrastructure/support/log"
 	"sort"
+	"time"
 )
 
 type Widget struct {
@@ -45,14 +48,23 @@ func (w *Widget) Carousel() (res []entity.TemplateCarousel) {
 	return config.Config.Template.Carousel
 }
 
-// Menu 模板导航
+// Menu 模板导航（带缓存，10分钟 TTL）
 func (w *Widget) Menu() []aggregate.CategoryTree {
+	cacheKey := "widget_menu"
+	// 尝试从缓存获取
+	if data, err := cache.Get("template", cacheKey); err == nil && len(data) > 0 {
+		var res []aggregate.CategoryTree
+		if json.Unmarshal(data, &res) == nil {
+			return res
+		}
+	}
+	// 缓存未命中，获取数据
 	var items []coreEntity.Category
 	var err error
 	if len(config.Config.Template.Menu.Select) > 0 {
 		// 根据选择调用的导航数据
 		items, err = service.Category.ListByIds(context.NewContextWithComment(config.Config.Template.Menu.Limit, "", "Widget.Menu"), config.Config.Template.Menu.Select)
-		items = coreUtils.SortByIds[coreEntity.Category](items, config.Config.Template.Menu.Select) // 根据选择的ids排序
+		items = coreUtils.SortByIds(items, config.Config.Template.Menu.Select) // 根据选择的ids排序
 	} else {
 		// 默认调用全部导航数据
 		items, err = service.Category.List(context.NewContextWithComment(config.Config.Template.Menu.Limit, "", "Widget.Menu"))
@@ -61,19 +73,57 @@ func (w *Widget) Menu() []aggregate.CategoryTree {
 		log.Error("template widget error", zap.Error(err))
 		return nil
 	}
-	return coreUtils.MakeCategoryTree(coreUtils.CategoryEntityListToCategoryTreeList(items), 0)
+	result := coreUtils.MakeCategoryTree(coreUtils.CategoryEntityListToCategoryTreeList(items), 0)
+	// 存入缓存
+	if len(result) > 0 {
+		if data, err := json.Marshal(result); err == nil {
+			cache.Set("template", cacheKey, data, 10*time.Minute)
+		}
+	}
+	return result
 }
 
-// Link 链接列表
+// Link 链接列表（带缓存，10分钟 TTL）
 func (w *Widget) Link() (res []coreEntity.Link) {
-	res, err := service.Link.ListPublic(context.NewContextByComment("Widget.Link"))
+	cacheKey := "widget_link"
+	var err error
+	// 尝试从缓存获取
+	var data []byte
+	if data, err = cache.Get("template", cacheKey); err == nil && len(data) > 0 {
+		if json.Unmarshal(data, &res) == nil {
+			return
+		}
+	}
+	// 缓存未命中，获取数据
+	res, err = service.Link.ListPublic(context.NewContextByComment("Widget.Link"))
 	log.ErrorShortcut("template widget error", err)
+	// 存入缓存
+	if len(res) > 0 {
+		if data, err = json.Marshal(res); err == nil {
+			cache.Set("template", cacheKey, data, 10*time.Minute)
+		}
+	}
 	return
 }
 
-// IndexList 首页列表
+// IndexList 首页列表（带缓存，5分钟 TTL）
 func (w *Widget) IndexList() (res []coreEntity.ArticleBase) {
-	return w.simpleList(config.Config.Template.IndexList)
+	cacheKey := "widget_index_list"
+	// 尝试从缓存获取
+	if data, err := cache.Get("template", cacheKey); err == nil && len(data) > 0 {
+		if json.Unmarshal(data, &res) == nil {
+			return
+		}
+	}
+	// 缓存未命中，获取数据
+	res = w.simpleList(config.Config.Template.IndexList)
+	// 存入缓存
+	if len(res) > 0 {
+		if data, err := json.Marshal(res); err == nil {
+			cache.Set("template", cacheKey, data, 5*time.Minute)
+		}
+	}
+	return
 }
 
 // GlobalList 全局列表
@@ -106,11 +156,21 @@ func (w *Widget) Breadcrumb(categoryID int) (res []coreEntity.Category) {
 	return
 }
 
-// TagCloud 标签云
+// TagCloud 标签云（带缓存，10分钟 TTL）
 func (w *Widget) TagCloud() (res []coreEntity.Tag) {
 	if config.Config.Template.TagCloud.Limit <= 0 {
 		return
 	}
+	cacheKey := "widget_tag_cloud"
+	var cacheErr error
+	// 尝试从缓存获取
+	var cacheData []byte
+	if cacheData, cacheErr = cache.Get("template", cacheKey); cacheErr == nil && len(cacheData) > 0 {
+		if json.Unmarshal(cacheData, &res) == nil {
+			return
+		}
+	}
+
 	var err error
 
 	// 指定了标签ID列表时使用原有逻辑
@@ -140,6 +200,12 @@ func (w *Widget) TagCloud() (res []coreEntity.Tag) {
 		for i, tc := range tagsWithCount {
 			res[i] = tc.tag
 		}
+		// 存入缓存
+		if len(res) > 0 {
+			if data, err := json.Marshal(res); err == nil {
+				cache.Set("template", cacheKey, data, 10*time.Minute)
+			}
+		}
 		return
 	}
 	// 使用一条 SQL 查询标签及其文章数量（按文章数量降序）
@@ -154,6 +220,12 @@ func (w *Widget) TagCloud() (res []coreEntity.Tag) {
 	res = make([]coreEntity.Tag, len(tagsWithCount))
 	for i, tc := range tagsWithCount {
 		res[i] = tc.Tag
+	}
+	// 存入缓存
+	if len(res) > 0 {
+		if data, err := json.Marshal(res); err == nil {
+			cache.Set("template", cacheKey, data, 10*time.Minute)
+		}
 	}
 	return
 }
