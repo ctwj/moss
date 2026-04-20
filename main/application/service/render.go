@@ -11,6 +11,7 @@ import (
 	"moss/infrastructure/support/template"
 	"net/url"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -382,16 +383,56 @@ func (r *RenderService) replaceTagLinks(content string) string {
 	sort.Slice(tags, func(i, j int) bool {
 		return len(tags[i].Name) > len(tags[j].Name)
 	})
-	// 简单替换：将标签名称替换为链接
-	// 注意：这里只替换一次，避免嵌套替换问题
+
+	// 策略：一次性找出所有HTML标签位置，然后在这些位置之外替换标签名
+	// 找出所有HTML标签的位置
+	tagPattern := regexp.MustCompile(`<[^>]+>`)
+	htmlMatches := tagPattern.FindAllStringIndex(content, -1)
+
+	// 构建一个函数检查某个位置是否在HTML标签内
+	isInHTMLTag := func(pos, length int) bool {
+		end := pos + length
+		for _, m := range htmlMatches {
+			if pos >= m[0] && end <= m[1] {
+				return true
+			}
+		}
+		return false
+	}
+
+	// 对每个标签名进行替换
 	result := content
 	for _, tag := range tags {
 		if tag.Name == "" {
 			continue
 		}
-		// 替换标签名为链接
-		link := fmt.Sprintf(`<a href="/tag/%s">%s</a>`, tag.Slug, tag.Name)
-		result = strings.ReplaceAll(result, tag.Name, link)
+		// 找出该标签名在内容中的所有位置
+		tagName := tag.Name
+		link := fmt.Sprintf(`<a href="/tag/%s">%s</a>`, tag.Slug, tagName)
+
+		// 从后向前替换，避免索引变化问题
+		positions := []int{}
+		for i := 0; i <= len(result)-len(tagName); i++ {
+			if result[i:i+len(tagName)] == tagName {
+				// 检查是否是独立的单词（前后不是字母数字）
+				beforeOK := i == 0 || !isAlphaNum(rune(result[i-1]))
+				afterOK := i+len(tagName) >= len(result) || !isAlphaNum(rune(result[i+len(tagName)]))
+				if beforeOK && afterOK && !isInHTMLTag(i, len(tagName)) {
+					positions = append(positions, i)
+				}
+			}
+		}
+
+		// 从后向前替换
+		for i := len(positions) - 1; i >= 0; i-- {
+			pos := positions[i]
+			result = result[:pos] + link + result[pos+len(tagName):]
+		}
 	}
 	return result
+}
+
+// isAlphaNum 检查字符是否是字母或数字
+func isAlphaNum(c rune) bool {
+	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')
 }

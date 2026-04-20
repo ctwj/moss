@@ -104,3 +104,6 @@ demo1/
 *.exe
 scripts/*
 runtime/
+openspec/
+.claude/
+docs/plans/

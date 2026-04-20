@@ -206,7 +206,7 @@
             <div class="bg-white rounded-2xl shadow-sm border border-gray-100 mb-6 sticky top-24 overflow-hidden">
                 {{ if Data.Thumbnail != "" }}
                 <div class="relative">
-                    <img src="{{ Data.Thumbnail }}" alt="{{ Data.Title }}" class="w-full h-40 object-cover" loading="lazy" decoding="async">
+                    <img src="{{ Data.Thumbnail }}" alt="{{ Data.Title }}" class="w-full h-40 object-cover" loading="lazy" decoding="async" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI4MCIgaGVpZ2h0PSI4MCIgdmlld0JveD0iMCAwIDgwIDgwIj48cmVjdCB3aWR0aD0iODAiIGhlaWdodD0iODAiIGZpbGw9IiNlNWU3ZWIiLz48cGF0aCBkPSJNMTAgMzBoNjBWMTBoLTYwVjMwaDZ6bTAgNDBoNjB2NTBoLTYwVjcwaDZ6bTMwIDM1YzE2LjYyNyAwIDMwLTEzLjM3MyAzMC0zMHMtMTMuMzczLTMwLTMwLTMwLTMwIDEzLjM3My0zMCAzMCAxMy4zNzMgMzAgMzAgMzB6IiBmaWxsPSIjOTRhNmJjIi8+PHJlY3QgeD0iMjAiIHk9IjQ1IiB3aWR0aD0iNDAiIGhlaWdodD0iMjAiIGZpbGw9IiNmZmYiLz48L3N2Zz4='">
                     <div class="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" aria-hidden="true"></div>
                 </div>
                 {{ end }}
@@ -294,6 +294,20 @@
 </div>
 
 <script type="text/javascript">
+    // 图片加载失败时显示默认占位图
+    document.addEventListener('DOMContentLoaded', function() {
+        var defaultImg = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI4MCIgaGVpZ2h0PSI4MCIgdmlld0JveD0iMCAwIDgwIDgwIj48cmVjdCB3aWR0aD0iODAiIGhlaWdodD0iODAiIGZpbGw9IiNlNWU3ZWIiLz48cGF0aCBkPSJNMTAgMzBoNjBWMTBoLTYwVjMwaDZ6bTAgNDBoNjB2NTBoLTYwVjcwaDZ6bTMwIDM1YzE2LjYyNyAwIDMwLTEzLjM3MyAzMC0zMHMtMTMuMzczLTMwLTMwLTMwLTMwIDEzLjM3My0zMCAzMCAxMy4zNzMgMzAgMzAgMzB6IiBmaWxsPSIjOTRhNmJjIi8+PHJlY3QgeD0iMjAiIHk9IjQ1IiB3aWR0aD0iNDAiIGhlaWdodD0iMjAiIGZpbGw9IiNmZmYiLz48L3N2Zz4=';
+        var images = document.querySelectorAll('.article-content img, .bg-white img');
+        for (var i = 0; i < images.length; i++) {
+            (function(img) {
+                img.onerror = function() {
+                    this.src = defaultImg;
+                    this.onerror = null;
+                };
+            })(images[i]);
+        }
+    });
+
     let bots = ["google","bing","baidu","yahoo","bot","spider"]
     for (let k in bots) {
         if(navigator.userAgent.toLowerCase().indexOf(bots[k]) === -1) a()
