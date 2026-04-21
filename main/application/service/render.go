@@ -384,13 +384,19 @@ func (r *RenderService) replaceTagLinks(content string) string {
 		return len(tags[i].Name) > len(tags[j].Name)
 	})
 
-	// 策略：一次性找出所有HTML标签位置，然后在这些位置之外替换标签名
+	// 策略：一次性收集所有需要替换的位置，然后从后向前一次性替换
+	// 这样避免多次替换导致位置索引错位
+
 	// 找出所有HTML标签的位置
 	tagPattern := regexp.MustCompile(`<[^>]+>`)
 	htmlMatches := tagPattern.FindAllStringIndex(content, -1)
 
-	// 构建一个函数检查某个位置是否在HTML标签内
-	isInHTMLTag := func(pos, length int) bool {
+	// 找出所有 <a> 标签的范围（包括其内容）
+	aTagPattern := regexp.MustCompile(`<a\s[^>]*>.*?</a>`)
+	aTagMatches := aTagPattern.FindAllStringIndex(content, -1)
+
+	// 构建一个函数检查某个位置是否在HTML标签内部（属性值等）
+	isInHTMLTagAttr := func(pos, length int) bool {
 		end := pos + length
 		for _, m := range htmlMatches {
 			if pos >= m[0] && end <= m[1] {
@@ -400,35 +406,78 @@ func (r *RenderService) replaceTagLinks(content string) string {
 		return false
 	}
 
-	// 对每个标签名进行替换
-	result := content
+	// 构建一个函数检查某个位置是否在 <a> 标签内容中（不应再创建链接）
+	isInATagContent := func(pos, length int) bool {
+		end := pos + length
+		for _, m := range aTagMatches {
+			if pos >= m[0] && end <= m[1] {
+				return true
+			}
+		}
+		return false
+	}
+
+	// 收集所有需要替换的位置 {start, end, link}
+	type replaceItem struct {
+		start int
+		end   int
+		link  string
+	}
+	var allReplacements []replaceItem
+
+	// 对每个标签名收集替换位置
 	for _, tag := range tags {
 		if tag.Name == "" {
 			continue
 		}
-		// 找出该标签名在内容中的所有位置
 		tagName := tag.Name
 		link := fmt.Sprintf(`<a href="/tag/%s">%s</a>`, tag.Slug, tagName)
 
-		// 从后向前替换，避免索引变化问题
-		positions := []int{}
-		for i := 0; i <= len(result)-len(tagName); i++ {
-			if result[i:i+len(tagName)] == tagName {
+		// 找出该标签名在内容中的所有位置
+		for i := 0; i <= len(content)-len(tagName); i++ {
+			if content[i:i+len(tagName)] == tagName {
 				// 检查是否是独立的单词（前后不是字母数字）
-				beforeOK := i == 0 || !isAlphaNum(rune(result[i-1]))
-				afterOK := i+len(tagName) >= len(result) || !isAlphaNum(rune(result[i+len(tagName)]))
-				if beforeOK && afterOK && !isInHTMLTag(i, len(tagName)) {
-					positions = append(positions, i)
+				beforeOK := i == 0 || !isAlphaNum(rune(content[i-1]))
+				afterOK := i+len(tagName) >= len(content) || !isAlphaNum(rune(content[i+len(tagName)]))
+				// 不在HTML标签属性中，也不在已有 <a> 标签内容中
+				if beforeOK && afterOK && !isInHTMLTagAttr(i, len(tagName)) && !isInATagContent(i, len(tagName)) {
+					allReplacements = append(allReplacements, replaceItem{
+						start: i,
+						end:   i + len(tagName),
+						link:  link,
+					})
 				}
 			}
 		}
+	}
 
-		// 从后向前替换
-		for i := len(positions) - 1; i >= 0; i-- {
-			pos := positions[i]
-			result = result[:pos] + link + result[pos+len(tagName):]
+	// 如果没有需要替换的，直接返回
+	if len(allReplacements) == 0 {
+		return content
+	}
+
+	// 去重：同一位置只替换一次（按起始位置去重，保留最长的匹配）
+	// 由于已经按长度降序排序，先匹配的是最长的
+	seen := make(map[int]bool)
+	var uniqueReplacements []replaceItem
+	for _, r := range allReplacements {
+		if !seen[r.start] {
+			seen[r.start] = true
+			uniqueReplacements = append(uniqueReplacements, r)
 		}
 	}
+
+	// 按位置从后向前排序
+	sort.Slice(uniqueReplacements, func(i, j int) bool {
+		return uniqueReplacements[i].start > uniqueReplacements[j].start
+	})
+
+	// 从后向前替换
+	result := content
+	for _, r := range uniqueReplacements {
+		result = result[:r.start] + r.link + result[r.end:]
+	}
+
 	return result
 }
 

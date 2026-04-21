@@ -203,14 +203,14 @@
         <!-- Sidebar -->
         <aside class="w-full lg:w-80 flex-shrink-0">
             <!-- Software Info Card -->
-            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 mb-6 sticky top-24 overflow-hidden">
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 mb-6 overflow-hidden">
                 {{ if Data.Thumbnail != "" }}
                 <div class="relative">
                     <img src="{{ Data.Thumbnail }}" alt="{{ Data.Title }}" class="w-full h-40 object-cover" loading="lazy" decoding="async" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI4MCIgaGVpZ2h0PSI4MCIgdmlld0JveD0iMCAwIDgwIDgwIj48cmVjdCB3aWR0aD0iODAiIGhlaWdodD0iODAiIGZpbGw9IiNlNWU3ZWIiLz48cGF0aCBkPSJNMTAgMzBoNjBWMTBoLTYwVjMwaDZ6bTAgNDBoNjB2NTBoLTYwVjcwaDZ6bTMwIDM1YzE2LjYyNyAwIDMwLTEzLjM3MyAzMC0zMHMtMTMuMzczLTMwLTMwLTMwLTMwIDEzLjM3My0zMCAzMCAxMy4zNzMgMzAgMzAgMzB6IiBmaWxsPSIjOTRhNmJjIi8+PHJlY3QgeD0iMjAiIHk9IjQ1IiB3aWR0aD0iNDAiIGhlaWdodD0iMjAiIGZpbGw9IiNmZmYiLz48L3N2Zz4='">
                     <div class="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" aria-hidden="true"></div>
                 </div>
                 {{ end }}
-                
+
                 <div class="p-5">
                     <!-- 软件信息 -->
                     {{ if len(Data.SidebarInfo) > 0 }}
@@ -226,17 +226,19 @@
                         {{ end }}
                     </div>
                     {{ end }}
-
-                    <!-- 下载按钮 -->
-                    {{ if len(Data.DownloadList) > 0 }}
-                    <a href="#download-section" 
-                       class="w-full inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-primary-500 to-blue-500 text-white font-medium rounded-xl hover:from-primary-600 hover:to-blue-600 transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5">
-                        <i class="fas fa-download mr-2"></i>
-                        立即下载
-                    </a>
-                    {{ end }}
                 </div>
             </div>
+
+            <!-- Sticky Download Button -->
+            {{ if len(Data.DownloadList) > 0 }}
+            <div class="sticky top-20 z-10 mb-6">
+                <a href="#download-section"
+                   class="w-full inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-primary-500 to-blue-500 text-white font-medium rounded-xl hover:from-primary-600 hover:to-blue-600 transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5">
+                    <i class="fas fa-download mr-2"></i>
+                    立即下载
+                </a>
+            </div>
+            {{ end }}
 
             <!-- Related Articles -->
             {{ relatedArticles := Article().Limit(5).Order("views desc").ListByCategoryID(Data.CategoryID) }}
