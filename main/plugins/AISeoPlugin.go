@@ -647,6 +647,11 @@ func (p *AISeoPlugin) parseIntegratedResponse(content string) (*IntegratedRespon
 			zap.String("fixed_preview", truncateText(fixedJsonStr, 200)))
 	}
 
+	// 修复无效的转义序列（如 Windows 路径中的 \P）
+	// AI 可能返回包含 Windows 路径的内容，如 Thunder\Program\Thunder.exe
+	// 其中 \P 不是有效的 JSON 转义序列
+	fixedJsonStr = fixInvalidEscapeSequences(fixedJsonStr)
+
 	// 清理无效的 UTF-8 字符
 	// AI 可能返回包含无效 UTF-8 字符（如替换字符 \uFFFD）的响应
 	cleanedJsonStr := cleanInvalidUTF8(fixedJsonStr)
@@ -938,7 +943,7 @@ func (p *AISeoPlugin) buildIntegratedPrompt(article *entity.Article, categoryLis
 	}
 
 	if p.EnableKeywords {
-		fields = append(fields, `  "keywords": "关键词1, 关键词2, 关键词3"`)
+		fields = append(fields, `  “keywords”: “关键词1, 关键词2, 关键词3”`)
 
 		requirements = append(requirements, fmt.Sprintf(`
 【多引擎关键词策略】
@@ -948,7 +953,7 @@ func (p *AISeoPlugin) buildIntegratedPrompt(article *entity.Article, categoryLis
 - 自然出现，不强制次数
 
 优化要求：
-- 必须覆盖“下载 / 免费 / 中文 / 破解版”等用户搜索词（如适用）
+- 必须覆盖”下载 / 免费 / 中文 / 破解版”等用户搜索词（如适用）
 - 允许部分关键词语义重复
 - 同时保证语句自然（适配Google）
 
@@ -960,9 +965,9 @@ func (p *AISeoPlugin) buildIntegratedPrompt(article *entity.Article, categoryLis
 - 结合当前热点和时效性词汇
 
 数量要求：
-- 总数 %d 到 %d 个关键词
+- 总数 %d-%d 个关键词
 - 其中至少 %d 个长尾关键词
-- 关键词之间用英文逗号分隔`, p.MinKeywords, p.MaxKeywords, p.MinLongTail))
+- 关键词之间用英文逗号分隔`, p.MinLongTail, p.MinKeywords, p.MaxKeywords, p.MinKeywords, p.MaxKeywords, p.MinLongTail))
 	}
 
 	if p.EnableDescription {
@@ -2951,6 +2956,55 @@ func fixInvalidUnicodeEscapes(jsonStr string) string {
 	// 例如: \U1F4A -> \u1F4A
 	re := regexp.MustCompile(`\\U([0-9A-Fa-f]{4})`)
 	return re.ReplaceAllString(jsonStr, `\\u$1`)
+}
+
+// fixInvalidEscapeSequences 修复 JSON 字符串中无效的转义序列
+// AI 可能返回包含 Windows 路径的内容，如 Thunder\Program\Thunder.exe
+// 其中 \P 不是有效的 JSON 转义序列，需要转换为 \\P
+func fixInvalidEscapeSequences(jsonStr string) string {
+	// JSON 标准支持的转义序列
+	validEscapes := map[byte]bool{
+		'"':  true,
+		'\\': true,
+		'/':  true,
+		'b':  true,
+		'f':  true,
+		'n':  true,
+		'r':  true,
+		't':  true,
+		'u':  true, // Unicode 转义
+	}
+
+	var result strings.Builder
+	result.Grow(len(jsonStr) + len(jsonStr)/10) // 预分配额外空间
+
+	i := 0
+	for i < len(jsonStr) {
+		if jsonStr[i] == '\\' && i+1 < len(jsonStr) {
+			nextChar := jsonStr[i+1]
+			if validEscapes[nextChar] {
+				// 有效的转义序列，保留原样
+				result.WriteByte(jsonStr[i])
+				result.WriteByte(nextChar)
+				i += 2
+				// 如果是 \u，需要保留后面的4个十六进制字符
+				if nextChar == 'u' && i+4 <= len(jsonStr) {
+					result.WriteString(jsonStr[i : i+4])
+					i += 4
+				}
+			} else {
+				// 无效的转义序列，添加额外的反斜杠
+				result.WriteString("\\\\")
+				result.WriteByte(nextChar)
+				i += 2
+			}
+		} else {
+			result.WriteByte(jsonStr[i])
+			i++
+		}
+	}
+
+	return result.String()
 }
 
 // cleanInvalidUTF8 清理字符串中的无效 UTF-8 字符
