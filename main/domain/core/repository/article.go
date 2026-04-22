@@ -364,9 +364,94 @@ func (r *ArticleRepo) ListUngeneratedArticles(limit int, skipPublished, forceReg
 			// 使用 JSON 函数检查 ai_seo_generated 不存在或为 false
 			// 兼容 SQLite/MySQL/PostgreSQL
 			query = query.Where(
-				"article_detail.extends IS NULL OR article_detail.extends = '' OR "+
-					"article_detail.extends NOT LIKE '%ai_seo_generated%' OR "+
+				"article_detail.extends IS NULL OR article_detail.extends = '' OR " +
+					"article_detail.extends NOT LIKE '%ai_seo_generated%' OR " +
 					"article_detail.extends LIKE '%\"ai_seo_generated\"%' AND article_detail.extends LIKE '%\"value\":false%'",
+			)
+		}
+
+		// 按ID升序排列，获取指定数量
+		var articleBases []entity.ArticleBase
+		var articleDetails []entity.ArticleDetail
+
+		if err := query.Order("article.id ASC").Limit(limit).Find(&articleBases).Error; err != nil {
+			return err
+		}
+
+		if len(articleBases) == 0 {
+			return nil
+		}
+
+		// 收集文章ID
+		articleIDs := make([]int, len(articleBases))
+		for i, base := range articleBases {
+			articleIDs[i] = base.ID
+		}
+
+		// 查询详情
+		if err := tx.Model(&entity.ArticleDetail{}).
+			Where("article_id IN ?", articleIDs).
+			Find(&articleDetails).Error; err != nil {
+			return err
+		}
+
+		// 组装结果
+		detailMap := make(map[int]entity.ArticleDetail)
+		for _, detail := range articleDetails {
+			detailMap[detail.ArticleID] = detail
+		}
+
+		res = make([]*entity.Article, len(articleBases))
+		for i, base := range articleBases {
+			article := &entity.Article{ArticleBase: base}
+			if detail, ok := detailMap[base.ID]; ok {
+				article.ArticleDetail = detail
+			}
+			res[i] = article
+		}
+
+		return nil
+	})
+	return
+}
+
+// ListArticlesNeedImageSync 获取需要图片同步的文章列表
+// domain: 目标域名，用于筛选不匹配该域名的图片
+// limit: 最大返回数量
+// 返回已发布文章中，缩略图或正文包含非目标域名图片的文章
+func (r *ArticleRepo) ListArticlesNeedImageSync(domain string, limit int) (res []*entity.Article, err error) {
+	if limit <= 0 {
+		limit = 1000
+	}
+
+	err = db.DB.Transaction(func(tx *gorm.DB) error {
+		// 构建基础查询：已发布文章
+		query := tx.Model(&entity.ArticleBase{}).
+			Select("article.*, article_detail.*").
+			Joins("LEFT JOIN article_detail ON article.id = article_detail.article_id").
+			Where("article.status = ?", true)
+
+		// 筛选条件
+		if domain != "" {
+			// 条件1：缩略图非空且不匹配域名
+			// 条件2：正文包含 img 标签，且 src 属性不包含目标域名
+			// 注意：SQL 无法精确解析 HTML，这里用 LIKE 近似匹配
+			// 匹配 src=" 或 src=' 后面不跟目标域名的情况
+			// 需要同时检查双引号和单引号
+			query = query.Where(
+				"(article.thumbnail != '' AND article.thumbnail NOT LIKE ?) OR "+
+					"(article_detail.content LIKE '%<img%' AND "+
+					"article_detail.content NOT LIKE ? AND "+
+					"article_detail.content NOT LIKE ?)",
+				"%"+domain+"%",
+				"%src=\"%"+domain+"%",
+				"%src='%"+domain+"%",
+			)
+		} else {
+			// 域名为空时，只筛选包含图片的文章
+			query = query.Where(
+				"article.thumbnail != '' OR article_detail.content LIKE ?",
+				"%<img%",
 			)
 		}
 

@@ -42,68 +42,68 @@ type repoContext = repoContextPkg.Context
 
 // uploadTask 上传任务
 type uploadTask struct {
-	TaskID    string        // 任务ID
-	Name      string        // 文件名
-	Ext       string        // 文件扩展名
-	ImgType   string        // 图片类型
-	File      []byte        // 文件内容
+	TaskID    string             // 任务ID
+	Name      string             // 文件名
+	Ext       string             // 文件扩展名
+	ImgType   string             // 图片类型
+	File      []byte             // 文件内容
 	Result    chan *uploadResult // 结果通道
-	Retries   int           // 重试次数
-	CreatedAt time.Time     // 创建时间
+	Retries   int                // 重试次数
+	CreatedAt time.Time          // 创建时间
 }
 
 // uploadResult 上传结果
 type uploadResult struct {
-	URL       string        // 上传后的URL
-	Error     error         // 错误信息
-	Completed bool          // 是否完成
-	Retried   int           // 重试次数
+	URL       string // 上传后的URL
+	Error     error  // 错误信息
+	Completed bool   // 是否完成
+	Retried   int    // 重试次数
 }
 
 type SaveArticleImages struct {
 	EnableOnCreate bool `json:"enable_on_create"` // 创建时执行
 	EnableOnUpdate bool `json:"enable_on_update"` // 更新时执行
 
-	MaxWidth          int    `json:"max_width"`           // 最大图片宽度(像素)，大于此宽度将被等比例缩放
-	MaxHeight         int    `json:"max_height"`          // 最大图片高度(像素)，大于此高度将被等比例缩放
-	ThumbWidth        int    `json:"thumb_width"`         // 缩略图宽度(像素)
-	ThumbHeight       int    `json:"thumb_height"`        // 缩略图高度(像素)
-	ThumbMinWidth     int    `json:"thumb_min_width"`     // 选取缩略图时，限制最小缩略图宽度(像素)，小于此宽度的图片不会被选取成缩略图
-	ThumbMinHeight    int    `json:"thumb_min_height"`    // 选取缩略图时，限制最小缩略图高度(像素)，小于此高度的图片不会被选取成缩略图
-	AlwaysResize      bool   `json:"always_resize"`       // 是否始终缩放一下图片，已减少图片体积
-	ThumbExtractFocus bool   `json:"thumb_extract_focus"` // 生成缩略图是提取焦点方式生成
-	RemoveIfDownFail  bool   `json:"remove_if_down_fail"` // 下载失败是否删除
-	DownRetry         int    `json:"down_retry"`          // 重试次数
-	DownReferer       string `json:"down_referer"`        // 下载referer
-	DownProxy         string `json:"down_proxy"`          // 下载代理
-	UploadTarget      string `json:"upload_target"`       // 上传目标: local/api
-	APIUploadURL      string `json:"api_upload_url"`      // 图床API地址
-	APIFileField      string `json:"api_file_field"`      // 图床文件字段名
-	APIHeaders        string `json:"api_headers"`         // 图床请求头(每行 key: value)
-	APIFormData       string `json:"api_form_data"`       // 图床附加表单(每行 key=value)
-	APIURLPath        string `json:"api_url_path"`        // 图床返回图片URL路径(如 data.url)
-	APISuccessPath    string `json:"api_success_path"`    // 图床返回成功标识路径(可选)
-	APISuccessValue   string `json:"api_success_value"`   // 图床返回成功标识值
-	APITimeout        int    `json:"api_timeout"`         // 图床上传超时(秒)
-	APIProxy          string `json:"api_proxy"`           // 图床上传代理
-	APIImageDomain    string `json:"api_image_domain"`    // 图床图片域名(用于跳过重复上传)
-	APIRateLimitPerMinute int `json:"api_rate_limit_per_minute"` // API每分钟调用限制
-	APIMaxQueueSize   int    `json:"api_max_queue_size"`  // API上传队列最大长度
-	APIQueueTimeout   int    `json:"api_queue_timeout"`   // 队列任务超时时间(秒)
+	MaxWidth              int    `json:"max_width"`                 // 最大图片宽度(像素)，大于此宽度将被等比例缩放
+	MaxHeight             int    `json:"max_height"`                // 最大图片高度(像素)，大于此高度将被等比例缩放
+	ThumbWidth            int    `json:"thumb_width"`               // 缩略图宽度(像素)
+	ThumbHeight           int    `json:"thumb_height"`              // 缩略图高度(像素)
+	ThumbMinWidth         int    `json:"thumb_min_width"`           // 选取缩略图时，限制最小缩略图宽度(像素)，小于此宽度的图片不会被选取成缩略图
+	ThumbMinHeight        int    `json:"thumb_min_height"`          // 选取缩略图时，限制最小缩略图高度(像素)，小于此高度的图片不会被选取成缩略图
+	AlwaysResize          bool   `json:"always_resize"`             // 是否始终缩放一下图片，已减少图片体积
+	ThumbExtractFocus     bool   `json:"thumb_extract_focus"`       // 生成缩略图是提取焦点方式生成
+	RemoveIfDownFail      bool   `json:"remove_if_down_fail"`       // 下载失败是否删除
+	DownRetry             int    `json:"down_retry"`                // 重试次数
+	DownReferer           string `json:"down_referer"`              // 下载referer
+	DownProxy             string `json:"down_proxy"`                // 下载代理
+	UploadTarget          string `json:"upload_target"`             // 上传目标: local/api
+	APIUploadURL          string `json:"api_upload_url"`            // 图床API地址
+	APIFileField          string `json:"api_file_field"`            // 图床文件字段名
+	APIHeaders            string `json:"api_headers"`               // 图床请求头(每行 key: value)
+	APIFormData           string `json:"api_form_data"`             // 图床附加表单(每行 key=value)
+	APIURLPath            string `json:"api_url_path"`              // 图床返回图片URL路径(如 data.url)
+	APISuccessPath        string `json:"api_success_path"`          // 图床返回成功标识路径(可选)
+	APISuccessValue       string `json:"api_success_value"`         // 图床返回成功标识值
+	APITimeout            int    `json:"api_timeout"`               // 图床上传超时(秒)
+	APIProxy              string `json:"api_proxy"`                 // 图床上传代理
+	APIImageDomain        string `json:"api_image_domain"`          // 图床图片域名(用于跳过重复上传)
+	APIRateLimitPerMinute int    `json:"api_rate_limit_per_minute"` // API每分钟调用限制
+	APIMaxQueueSize       int    `json:"api_max_queue_size"`        // API上传队列最大长度
+	APIQueueTimeout       int    `json:"api_queue_timeout"`         // 队列任务超时时间(秒)
 
 	ctx         *pluginEntity.Plugin
 	downReferer []saveArticleImagesDownReferer
 
 	// 频率限制和队列相关字段
-	uploadQueue    chan *uploadTask          // 上传任务队列
-	rateLimiter    *rate.Limiter              // 频率限制器
-	workerPool     *ants.PoolWithFunc         // 工作池
-	queueCtx       context.Context            // 队列上下文
-	queueCancel    context.CancelFunc         // 队列取消函数
-	uploadMutex    sync.Mutex                 // 上传互斥锁
-	wg             sync.WaitGroup              // 等待组
-	uploadResults  map[string]*uploadResult   // 上传结果映射
-	resultMutex    sync.Mutex                 // 结果映射互斥锁
+	uploadQueue   chan *uploadTask         // 上传任务队列
+	rateLimiter   *rate.Limiter            // 频率限制器
+	workerPool    *ants.PoolWithFunc       // 工作池
+	queueCtx      context.Context          // 队列上下文
+	queueCancel   context.CancelFunc       // 队列取消函数
+	uploadMutex   sync.Mutex               // 上传互斥锁
+	wg            sync.WaitGroup           // 等待组
+	uploadResults map[string]*uploadResult // 上传结果映射
+	resultMutex   sync.Mutex               // 结果映射互斥锁
 
 	// 水印配置
 	WatermarkEnable      bool   `json:"watermark_enable"`       // 是否启用水印
@@ -112,7 +112,7 @@ type SaveArticleImages struct {
 	WatermarkOpacity     int    `json:"watermark_opacity"`      // 透明度 (0-100), 100为不透明
 	WatermarkMargin      int    `json:"watermark_margin"`       // 边距(像素)
 	WatermarkTileSpacing int    `json:"watermark_tile_spacing"` // 平铺间距(像素)
-	WatermarkMinWidth   int    `json:"watermark_min_width"`    // 最小宽度限制(像素),只有图片宽度大于等于此值才添加水印
+	WatermarkMinWidth    int    `json:"watermark_min_width"`    // 最小宽度限制(像素),只有图片宽度大于等于此值才添加水印
 
 	// 文字水印配置
 	WatermarkText       string `json:"watermark_text"`        // 水印文字
@@ -143,27 +143,27 @@ type SaveArticleImages struct {
 
 func NewSaveArticleImages() *SaveArticleImages {
 	return &SaveArticleImages{
-		EnableOnCreate:    true,
-		EnableOnUpdate:    true,
-		DownRetry:         3,
-		MaxWidth:          1000,
-		MaxHeight:         2000,
-		ThumbWidth:        230,
-		ThumbHeight:       138,
-		ThumbMinWidth:     100,
-		ThumbMinHeight:    100,
-		AlwaysResize:      true,
-		ThumbExtractFocus: true,
-		RemoveIfDownFail:  true,
-		DownReferer:       "bdimg bdstatic http://www.baidu.com/\ntoutiaoimg http://www.toutiao.com/",
-		UploadTarget:      "local",
-		APIFileField:      "file",
-		APIURLPath:        "data.url",
-		APISuccessValue:   "true",
-		APITimeout:        30,
-		APIRateLimitPerMinute: 20,  // 默认每分钟20次
-		APIMaxQueueSize:   1000,   // 默认队列最大1000个任务
-		APIQueueTimeout:   300,    // 默认队列超时5分钟
+		EnableOnCreate:        true,
+		EnableOnUpdate:        true,
+		DownRetry:             3,
+		MaxWidth:              1000,
+		MaxHeight:             2000,
+		ThumbWidth:            230,
+		ThumbHeight:           138,
+		ThumbMinWidth:         100,
+		ThumbMinHeight:        100,
+		AlwaysResize:          true,
+		ThumbExtractFocus:     true,
+		RemoveIfDownFail:      true,
+		DownReferer:           "bdimg bdstatic http://www.baidu.com/\ntoutiaoimg http://www.toutiao.com/",
+		UploadTarget:          "local",
+		APIFileField:          "file",
+		APIURLPath:            "data.url",
+		APISuccessValue:       "true",
+		APITimeout:            30,
+		APIRateLimitPerMinute: 20,   // 默认每分钟20次
+		APIMaxQueueSize:       1000, // 默认队列最大1000个任务
+		APIQueueTimeout:       300,  // 默认队列超时5分钟
 
 		// 水印配置默认值
 		WatermarkEnable:      false,
@@ -172,21 +172,21 @@ func NewSaveArticleImages() *SaveArticleImages {
 		WatermarkOpacity:     70,
 		WatermarkMargin:      10,
 		WatermarkTileSpacing: 100,
-		WatermarkMinWidth:    0,     // 默认不限制
+		WatermarkMinWidth:    0, // 默认不限制
 		WatermarkFontSize:    20,
 		WatermarkFontColor:   "#FFFFFF",
 		WatermarkTextRotate:  0,
-		WatermarkBgColor:     "",    // 默认无背景
-		WatermarkBgRadius:    0,     // 默认无圆角
+		WatermarkBgColor:     "", // 默认无背景
+		WatermarkBgRadius:    0,  // 默认无圆角
 		WatermarkImageScale:  20,
 		WatermarkImageRotate: 0,
 		// 新增配置默认值
-		WatermarkStrokeColor:     "",  // 默认无描边
+		WatermarkStrokeColor:     "", // 默认无描边
 		WatermarkStrokeWidth:     0,
-		WatermarkBgGradientStart: "",  // 默认无渐变
+		WatermarkBgGradientStart: "", // 默认无渐变
 		WatermarkBgGradientEnd:   "",
 		WatermarkBgGradientAngle: 0,
-		WatermarkBgPadding:       0,   // 默认使用字体大小的1/3
+		WatermarkBgPadding:       0, // 默认使用字体大小的1/3
 	}
 }
 
@@ -197,7 +197,7 @@ func (s *SaveArticleImages) Info() *pluginEntity.PluginInfo {
 		RunEnable:  true, // 允许手动执行
 		CronEnable: true, // 允许定时任务
 		PluginInfoPersistent: pluginEntity.PluginInfoPersistent{
-			CronStart: false, // 默认关闭，用户可手动开启
+			CronStart: false,        // 默认关闭，用户可手动开启
 			CronExp:   "@every 24h", // 默认每天执行一次，用户可在启用时修改
 		},
 	}
@@ -210,19 +210,24 @@ func (s *SaveArticleImages) Run(ctx *pluginEntity.Plugin) error {
 
 	ctx.Log.Info("开始批量处理文章图片...")
 
-	// 查询最新的 10000 篇文章
-	queryCtx := &repoContext{
-		Limit: 10000,
-		Order: "id desc",
+	// 根据 UploadTarget 获取目标域名
+	var targetDomain string
+	if strings.EqualFold(strings.TrimSpace(s.UploadTarget), "api") {
+		targetDomain = s.APIImageDomain
+		ctx.Log.Info("使用API图床模式", zap.String("target_domain", targetDomain))
+	} else {
+		targetDomain = config.Config.Upload.Domain
+		ctx.Log.Info("使用本地存储模式", zap.String("target_domain", targetDomain))
 	}
 
-	articles, err := repository.Article.List(queryCtx)
+	// 使用 SQL 筛选需要处理的文章
+	articles, err := repository.Article.ListArticlesNeedImageSync(targetDomain, 10000)
 	if err != nil {
-		ctx.Log.Error("查询文章列表失败", zap.Error(err))
+		ctx.Log.Error("查询需要图片同步的文章失败", zap.Error(err))
 		return err
 	}
 
-	ctx.Log.Info("共查询到文章数量", zap.Int("count", len(articles)))
+	ctx.Log.Info("共查询到需要处理的文章数量", zap.Int("count", len(articles)))
 
 	// 统计信息
 	processedCount := 0
@@ -231,7 +236,7 @@ func (s *SaveArticleImages) Run(ctx *pluginEntity.Plugin) error {
 	errorCount := 0
 
 	// 遍历每篇文章
-	for i, articleBase := range articles {
+	for i, article := range articles {
 		// 每处理 10 篇文章输出一次进度
 		if (i+1)%10 == 0 || i == len(articles)-1 {
 			ctx.Log.Info("处理进度",
@@ -243,22 +248,10 @@ func (s *SaveArticleImages) Run(ctx *pluginEntity.Plugin) error {
 			)
 		}
 
-		// 获取文章详情（包含内容）
-		article, err := repository.Article.Get(articleBase.ID)
-		if err != nil {
-			ctx.Log.Error("获取文章详情失败",
-				zap.Int("id", articleBase.ID),
-				zap.String("title", articleBase.Title),
-				zap.Error(err),
-			)
-			errorCount++
-			continue
-		}
-
 		processedCount++
 
-		// 检查文章是否需要处理图片
-		needsProcess := s.checkNeedsProcess(article)
+		// 使用精确判断检查文章是否需要处理图片
+		needsProcess := s.checkNeedsSyncForTarget(article)
 
 		if !needsProcess {
 			skippedCount++
@@ -302,6 +295,38 @@ func (s *SaveArticleImages) Run(ctx *pluginEntity.Plugin) error {
 	)
 
 	return nil
+}
+
+// checkNeedsSyncForTarget 检查文章是否需要根据 UploadTarget 同步图片
+// 仅用于定时任务扫描，使用精确的域名判断
+func (s *SaveArticleImages) checkNeedsSyncForTarget(article *entity.Article) bool {
+	// 解析文章内容中的图片
+	doc, err := goquery.NewDocumentFromReader(strings.NewReader(article.Content))
+	if err != nil {
+		return false
+	}
+
+	// 检查是否有需要处理的图片
+	needsProcess := false
+	doc.Find("img").Each(func(i int, selection *goquery.Selection) {
+		src, ok := selection.Attr("src")
+		if !ok || src == "" {
+			return
+		}
+
+		// 使用精确判断
+		if s.needsSyncForTarget(src) {
+			needsProcess = true
+			return
+		}
+	})
+
+	// 检查封面是否需要处理
+	if article.Thumbnail != "" && s.needsSyncForTarget(article.Thumbnail) {
+		needsProcess = true
+	}
+
+	return needsProcess
 }
 
 // checkNeedsProcess 检查文章是否需要处理图片
@@ -420,6 +445,58 @@ func (s *SaveArticleImages) isCurrentUploadDomain(imgURL string) bool {
 		}
 	}
 	return false
+}
+
+// isLocalDomain 判断图片URL是否在本地上传域名
+func (s *SaveArticleImages) isLocalDomain(imgURL string) bool {
+	if strings.HasPrefix(imgURL, config.Config.Upload.Domain) {
+		return true
+	}
+	if uri, err := url.Parse(config.Config.Upload.Domain); err == nil {
+		if uri.Host != "" && strings.Contains(imgURL, uri.Host) {
+			return true
+		}
+	}
+	return false
+}
+
+// isAPIDomain 判断图片URL是否在API图床域名
+func (s *SaveArticleImages) isAPIDomain(imgURL string) bool {
+	if s.APIImageDomain == "" {
+		return false
+	}
+	if strings.HasPrefix(imgURL, s.APIImageDomain) {
+		return true
+	}
+	if uri, err := url.Parse(s.APIImageDomain); err == nil {
+		if uri.Host != "" && strings.Contains(imgURL, uri.Host) {
+			return true
+		}
+	}
+	return false
+}
+
+// needsSyncForTarget 根据当前 UploadTarget 配置判断图片是否需要同步处理
+// 仅用于定时任务扫描，不影响原有的创建/更新逻辑
+func (s *SaveArticleImages) needsSyncForTarget(imgURL string) bool {
+	// 非远程图片不需要处理
+	if !strings.HasPrefix(imgURL, "http") && !strings.HasPrefix(imgURL, "//") {
+		return false
+	}
+	// base64图片不需要处理
+	if strings.HasPrefix(imgURL, "data:") {
+		return false
+	}
+
+	// 根据 UploadTarget 判断
+	if strings.EqualFold(strings.TrimSpace(s.UploadTarget), "api") {
+		// API图床模式：检查图片是否在API图床域名
+		// 不在API图床域名的图片需要处理
+		return !s.isAPIDomain(imgURL)
+	}
+	// 本地模式：检查图片是否在本地上传域名
+	// 不在本地的图片需要处理
+	return !s.isLocalDomain(imgURL)
 }
 
 func (s *SaveArticleImages) eachSave(item *entity.Article) func(i int, sn *goquery.Selection) {
@@ -1119,10 +1196,10 @@ func (s *SaveArticleImages) loadWatermarkImage() ([]byte, error) {
 		// 从本地文件加载
 		// 尝试从多个可能的路径加载
 		possiblePaths := []string{
-			s.WatermarkImagePath,                    // 直接使用配置的路径
-			"./" + s.WatermarkImagePath,             // 相对路径
-			"../" + s.WatermarkImagePath,            // 上级目录
-			"../../" + s.WatermarkImagePath,         // 上上级目录
+			s.WatermarkImagePath,                                       // 直接使用配置的路径
+			"./" + s.WatermarkImagePath,                                // 相对路径
+			"../" + s.WatermarkImagePath,                               // 上级目录
+			"../../" + s.WatermarkImagePath,                            // 上上级目录
 			"main/resources/plugins/watermark/" + s.WatermarkImagePath, // 默认水印目录
 		}
 
