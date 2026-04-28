@@ -58,6 +58,20 @@ func (r *Redis) Delete(bucket, key string) error {
 	return r.Handle.Del(r.Ctx, r.prefix(bucket)+key).Err()
 }
 
+func (r *Redis) DeleteByPrefix(bucket, prefix string) error {
+	if err := r.undefined(); err != nil {
+		return err
+	}
+	fullPrefix := r.prefix(bucket) + prefix
+	iter := r.Handle.Scan(r.Ctx, 0, fullPrefix+"*", 0).Iterator()
+	for iter.Next(r.Ctx) {
+		if err := r.Handle.Del(r.Ctx, iter.Val()).Err(); err != nil {
+			return err
+		}
+	}
+	return iter.Err()
+}
+
 func (r *Redis) ClearBucket(bucket string) error {
 	if err := r.undefined(); err != nil {
 		return err

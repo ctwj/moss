@@ -12,6 +12,7 @@ type Cache interface {
 	Get(bucket, key string) ([]byte, error)
 	Set(bucket, key string, val []byte, ttl time.Duration) error
 	Delete(bucket, key string) error
+	DeleteByPrefix(bucket, prefix string) error
 	ClearBucket(bucket string) error
 	Size() (int64, error)
 }

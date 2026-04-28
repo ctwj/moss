@@ -160,6 +160,14 @@ func (b *Badger) Delete(bucket, key string) error {
 	})
 }
 
+func (b *Badger) DeleteByPrefix(bucket, prefix string) error {
+	if err := b.undefined(); err != nil {
+		return err
+	}
+	fullPrefix := []byte(b.prefix(bucket) + prefix)
+	return b.Handle.DropPrefix(fullPrefix)
+}
+
 func (b *Badger) ClearBucket(bucket string) error {
 	if err := b.undefined(); err != nil {
 		return err

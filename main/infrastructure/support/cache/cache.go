@@ -64,10 +64,30 @@ func Delete(bucket, key string) error {
 	return d.Delete(bucket, key)
 }
 
+func DeleteByPrefix(bucket, prefix string) error {
+	d, err := ActiveDriver()
+	if err != nil {
+		return err
+	}
+	return d.DeleteByPrefix(bucket, prefix)
+}
+
 func ClearBucket(bucket string) error {
 	d, err := ActiveDriver()
 	if err != nil {
 		return err
 	}
 	return d.ClearBucket(bucket)
+}
+
+// InvalidateArticleCache invalidates the cache for a specific article by its URL.
+// This should be called when article content or thumbnail is updated.
+func InvalidateArticleCache(articleURL string) error {
+	return Delete("article", articleURL)
+}
+
+// InvalidateHomePageCache invalidates the home page cache.
+// This should be called when new articles are published or existing articles are updated.
+func InvalidateHomePageCache() error {
+	return ClearBucket("home")
 }

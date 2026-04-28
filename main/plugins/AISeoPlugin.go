@@ -6,11 +6,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"moss/domain/config"
 	"moss/domain/core/entity"
 	"moss/domain/core/repository/context"
 	"moss/domain/core/service"
 	"moss/domain/core/vo"
 	pluginEntity "moss/domain/support/entity"
+	"moss/infrastructure/support/cache"
 	"moss/infrastructure/utils/request"
 	"net/url"
 	"regexp"
@@ -379,6 +381,13 @@ func (p *AISeoPlugin) Run(ctx *pluginEntity.Plugin) error {
 	// 等待所有任务完成
 	wg.Wait()
 
+	// Invalidate home page cache after batch processing if any articles were updated
+	if successCount > 0 && config.Config.Cache.Enable {
+		if err := cache.InvalidateHomePageCache(); err != nil {
+			p.ctx.Log.Warn("Failed to invalidate home page cache after batch processing", zap.Error(err))
+		}
+	}
+
 	p.ctx.Log.Info("AISeoPlugin completed",
 		zap.Int64("success", successCount),
 		zap.Int("total", len(articles)))
@@ -500,6 +509,21 @@ func (p *AISeoPlugin) processArticle(article *entity.Article) error {
 		return err
 	}
 
+	// Invalidate article cache after update
+	if config.Config.Cache.Enable {
+		if err := cache.InvalidateArticleCache(article.URL()); err != nil {
+			p.ctx.Log.Warn("Failed to invalidate article cache",
+				zap.Int("article_id", article.ID),
+				zap.Error(err))
+		}
+		// Invalidate home page cache if article is published or auto-published
+		if article.Status || p.AutoPublish {
+			if err := cache.InvalidateHomePageCache(); err != nil {
+				p.ctx.Log.Warn("Failed to invalidate home page cache", zap.Error(err))
+			}
+		}
+	}
+
 	// 输出成功日志
 	p.ctx.Log.Info("Article processed successfully",
 		zap.Int("article_id", article.ID),
@@ -577,6 +601,21 @@ func (p *AISeoPlugin) processArticleWithAPI(article *entity.Article, apiCfg *API
 			zap.Int("article_id", article.ID),
 			zap.Error(err))
 		return err
+	}
+
+	// Invalidate article cache after update
+	if config.Config.Cache.Enable {
+		if err := cache.InvalidateArticleCache(article.URL()); err != nil {
+			p.ctx.Log.Warn("Failed to invalidate article cache",
+				zap.Int("article_id", article.ID),
+				zap.Error(err))
+		}
+		// Invalidate home page cache if article is published or auto-published
+		if article.Status || p.AutoPublish {
+			if err := cache.InvalidateHomePageCache(); err != nil {
+				p.ctx.Log.Warn("Failed to invalidate home page cache", zap.Error(err))
+			}
+		}
 	}
 
 	// 输出成功日志

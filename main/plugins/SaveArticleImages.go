@@ -17,6 +17,7 @@ import (
 	"moss/domain/core/service"
 	pluginEntity "moss/domain/support/entity"
 	"moss/infrastructure/persistent/storage"
+	"moss/infrastructure/support/cache"
 	"moss/infrastructure/support/upload"
 	"moss/infrastructure/utils/imagex"
 	"moss/infrastructure/utils/request"
@@ -280,11 +281,27 @@ func (s *SaveArticleImages) Run(ctx *pluginEntity.Plugin) error {
 			continue
 		}
 
+		// Invalidate article cache after image replacement
+		if config.Config.Cache.Enable {
+			if err := cache.InvalidateArticleCache(article.URL()); err != nil {
+				ctx.Log.Warn("failed to invalidate article cache",
+					zap.Int("id", article.ID),
+					zap.Error(err))
+			}
+		}
+
 		updatedCount++
 		ctx.Log.Info("文章图片处理成功",
 			zap.Int("id", article.ID),
 			zap.String("title", article.Title),
 		)
+	}
+
+	// Invalidate home page cache after batch processing
+	if updatedCount > 0 && config.Config.Cache.Enable {
+		if err := cache.InvalidateHomePageCache(); err != nil {
+			ctx.Log.Warn("failed to invalidate home page cache after batch processing", zap.Error(err))
+		}
 	}
 
 	ctx.Log.Info("批量处理完成",

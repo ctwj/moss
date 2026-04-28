@@ -38,13 +38,53 @@ func (d *PreBuildArticleCache) Load(ctx *pluginEntity.Plugin) error {
 
 func (d *PreBuildArticleCache) ArticleCreateAfter(item *entity.Article) {
 	if d.EnableOnCreate {
+		// Delete any existing cache first
+		d.invalidateCache(item)
 		d.build(item, "create")
+	}
+	// Invalidate home page cache when new article is published
+	if item.Status {
+		d.invalidateHomePageCache()
 	}
 }
 
 func (d *PreBuildArticleCache) ArticleUpdateAfter(item *entity.Article) {
+	// Always invalidate cache on update to ensure consistency
+	d.invalidateCache(item)
 	if d.EnableOnUpdate {
 		d.build(item, "update")
+	}
+	// Invalidate home page cache when article status changes
+	if item.Status {
+		d.invalidateHomePageCache()
+	}
+}
+
+// invalidateCache deletes the cached article page
+func (d *PreBuildArticleCache) invalidateCache(item *entity.Article) {
+	if !config.Config.Cache.Enable {
+		return
+	}
+	option := config.Config.Cache.GetOption("article")
+	if option == nil || !option.Enable {
+		return
+	}
+	if err := cache.InvalidateArticleCache(item.URL()); err != nil {
+		d.ctx.Log.Warn("failed to invalidate article cache", zap.Error(err), zap.Int("id", item.ID))
+	}
+}
+
+// invalidateHomePageCache clears the home page cache
+func (d *PreBuildArticleCache) invalidateHomePageCache() {
+	if !config.Config.Cache.Enable {
+		return
+	}
+	option := config.Config.Cache.GetOption("home")
+	if option == nil || !option.Enable {
+		return
+	}
+	if err := cache.InvalidateHomePageCache(); err != nil {
+		d.ctx.Log.Warn("failed to invalidate home page cache", zap.Error(err))
 	}
 }
 

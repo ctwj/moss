@@ -543,7 +543,7 @@ func (q *QuarkCloudTransfer) getStoken(shareID string) (string, error) {
 	}
 
 	if response.Status != 200 {
-		return "", fmt.Errorf(response.Message)
+		return "", fmt.Errorf("quark api error: %s", response.Message)
 	}
 
 	return response.Data.Stoken, nil
@@ -583,7 +583,7 @@ func (q *QuarkCloudTransfer) getShare(shareID, stoken string) (*ShareResult, err
 	}
 
 	if response.Status != 200 {
-		return nil, fmt.Errorf(response.Message)
+		return nil, fmt.Errorf("quark api error: %s", response.Message)
 	}
 
 	return &response.Data, nil
@@ -626,7 +626,7 @@ func (q *QuarkCloudTransfer) getShareSaveToDir(shareID, stoken string, fidList, 
 	}
 
 	if response.Status != 200 {
-		return nil, fmt.Errorf(response.Message)
+		return nil, fmt.Errorf("quark api error: %s", response.Message)
 	}
 
 	return &response.Data, nil
@@ -663,7 +663,7 @@ func (q *QuarkCloudTransfer) getShareBtn(fidList []string, title string) (*Share
 	}
 
 	if response.Status != 200 {
-		return nil, fmt.Errorf(response.Message)
+		return nil, fmt.Errorf("quark api error: %s", response.Message)
 	}
 
 	return &response.Data, nil
@@ -703,7 +703,7 @@ func (q *QuarkCloudTransfer) getShareTask(taskID string, retryIndex int) (*TaskR
 	}
 
 	if response.Status != 200 {
-		return nil, fmt.Errorf(response.Message)
+		return nil, fmt.Errorf("quark api error: %s", response.Message)
 	}
 
 	return &response.Data, nil
@@ -737,7 +737,7 @@ func (q *QuarkCloudTransfer) getSharePassword(shareID string) (*PasswordResult, 
 	}
 
 	if response.Status != 200 {
-		return nil, fmt.Errorf(response.Message)
+		return nil, fmt.Errorf("quark api error: %s", response.Message)
 	}
 
 	return &response.Data, nil
@@ -906,7 +906,7 @@ func (q *QuarkCloudTransfer) getDirFile(pdirFid string) ([]map[string]interface{
 	}
 
 	if response.Status != 200 {
-		return nil, fmt.Errorf(response.Message)
+		return nil, fmt.Errorf("quark api error: %s", response.Message)
 	}
 
 	return response.Data.List, nil
@@ -944,7 +944,7 @@ func (q *QuarkCloudTransfer) deleteSingleFile(fileID string) error {
 	}
 
 	if response.Status != 200 {
-		return fmt.Errorf(response.Message)
+		return fmt.Errorf("quark api error: %s", response.Message)
 	}
 
 	// 如果有任务ID，等待任务完成

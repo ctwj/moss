@@ -45,6 +45,19 @@ func (m *Memcached) Delete(bucket, key string) error {
 	return m.Handle.Delete(m.prefix(bucket) + key)
 }
 
+// DeleteByPrefix deletes all keys with the given prefix.
+// Note: Memcached doesn't support prefix-based deletion natively,
+// so this implementation uses DeleteAll which is more aggressive.
+// For production use, consider maintaining a key registry or using a different cache driver.
+func (m *Memcached) DeleteByPrefix(bucket, prefix string) error {
+	if err := m.undefined(); err != nil {
+		return err
+	}
+	// Memcached doesn't support prefix-based deletion, so we use DeleteAll
+	// This is a limitation of Memcached - it doesn't support pattern matching
+	return m.Handle.DeleteAll()
+}
+
 func (m *Memcached) ClearBucket(bucket string) error {
 	if err := m.undefined(); err != nil {
 		return err
