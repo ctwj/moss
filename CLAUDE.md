@@ -123,3 +123,13 @@ The admin panel uses Vue 3 with Vite:
 2. Define DTOs in `main/api/web/dto/`
 3. Update routers in `main/api/web/router/`
 4. Add middleware if needed in `main/api/web/middleware/`
+
+<!-- SPECKIT START -->
+For additional context about technologies to be used, project structure,
+shell commands, and other important information, read the current plan
+at `specs/001-universal-spider/plan.md` and its supporting documents:
+- `specs/001-universal-spider/spec.md` — Feature specification
+- `specs/001-universal-spider/data-model.md` — Data model design
+- `specs/001-universal-spider/research.md` — Technical research
+- `specs/001-universal-spider/quickstart.md` — Quick start guide
+<!-- SPECKIT END -->
