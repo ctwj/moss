@@ -111,8 +111,17 @@
         <!-- Main Content -->
         <article class="flex-1 min-w-0">
             <!-- Article Header -->
-            <header class="bg-white rounded-2xl p-6 md:p-8 shadow-sm border border-gray-100 mb-6">
-                <h1 class="text-2xl md:text-3xl font-bold text-gray-900 mb-4 leading-tight">{{ Data.Title }}</h1>
+            <header class="bg-white rounded-2xl p-6 md:p-8 shadow-sm border border-gray-100 mb-6 relative">
+                {{ if Data.DownloadPaused }}
+                <div style="position:absolute; top:0.75rem; right:0.75rem; z-index:2;">
+                    <span style="display:inline-flex; align-items:center; font-size:0.75rem; font-weight:600; color:#ffffff; background:#ef4444; padding:0.25rem 0.7rem; border-radius:9999px; box-shadow:0 1px 4px rgba(0,0,0,.18);">
+                        <i class="fas fa-ban" style="margin-right:0.25rem;"></i>由于版权原因，已移除该资源
+                    </span>
+                </div>
+                {{ end }}
+                <h1 class="text-2xl md:text-3xl font-bold text-gray-900 mb-4 leading-tight">
+                    <span style="{{ if Data.DownloadPaused }}text-decoration: line-through;{{ end }}">{{ Data.Title }}</span>
+                </h1>
                 
                 <!-- 发布时间和浏览量 -->
                 <div class="flex flex-wrap items-center gap-4 text-sm text-gray-500 mb-4">
@@ -145,7 +154,7 @@
             </header>
 
             <!-- Article Content -->
-            <div class="bg-white rounded-2xl p-6 md:p-8 shadow-sm border border-gray-100 mb-6 relative overflow-hidden" style="{{ if Data.DownloadPaused }}min-height: 22rem;{{ end }}">
+            <div class="bg-white rounded-2xl p-6 md:p-8 shadow-sm border border-gray-100 mb-6 relative overflow-hidden" style="{{ if Data.DownloadPaused }}min-height: 22rem; max-height: 60vh;{{ end }}">
                 {{ if Data.Content != "" }}
                 <div class="prose prose-lg max-w-none article-content transition-all duration-300" style="{{ if Data.DownloadPaused }}filter: blur(7px); -webkit-filter: blur(7px); opacity: 0.55; user-select: none; pointer-events: none;{{ end }}">
                     {{ Data.Content | raw }}
@@ -165,19 +174,6 @@
                 </div>
                 {{ end }}
             </div>
-
-            <!-- 版权下架提示横幅 -->
-            {{ if Data.DownloadPaused }}
-            <div class="bg-red-50 border border-red-200 rounded-2xl p-5 mb-6 flex items-start">
-                <div class="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center mr-3 flex-shrink-0">
-                    <i class="fas fa-exclamation-circle text-red-500"></i>
-                </div>
-                <div>
-                    <p class="font-bold text-red-700">由于版权原因，该软件停止下载</p>
-                    <p class="text-sm text-red-600 mt-1">请支持正版</p>
-                </div>
-            </div>
-            {{ end }}
 
             <!-- Download Resources Section -->
             {{ if len(Data.DownloadList) > 0 }}

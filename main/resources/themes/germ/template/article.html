@@ -7,9 +7,18 @@
     {{ tags := Tag().Limit(10).ListByArticleID(Data.ID) }}
     {{ listByCategory :=Article().Limit(10).ListByCategoryID(Data.CategoryID) }}
 
-    <article class="card leading-8">
+    <article class="card leading-8" style="position:relative;">
+        {{ if Data.DownloadPaused }}
+        <div style="position:absolute; top:0.5rem; right:0.5rem; z-index:2;">
+            <span style="display:inline-flex; align-items:center; font-size:0.75rem; font-weight:600; color:#ffffff; background:#ef4444; padding:0.25rem 0.7rem; border-radius:9999px; box-shadow:0 1px 4px rgba(0,0,0,.18);">
+                <i class="fas fa-ban" style="margin-right:0.25rem;"></i>由于版权原因，已移除该资源
+            </span>
+        </div>
+        {{ end }}
         {{yield breadcrumb(id=Data.CategoryID)}}
-        <h1 class="text-xl md:text-3xl font-bold text-black dark:text-neutral-200">{{ Data.Title }}</h1>
+        <h1 class="text-xl md:text-3xl font-bold text-black dark:text-neutral-200">
+            <span style="{{ if Data.DownloadPaused }}text-decoration: line-through;{{ end }}">{{ Data.Title }}</span>
+        </h1>
         <p class="pb-3 pt-1 mb-3 flex items-center border-b text-sm text-gray-400 dark:text-neutral-400 dark:border-neutral-600">
             <span><i class="mr-1 icon icon-time"></i>{{ Data.CreateTimeFormat() }}</span>
             {{ if Data.Views > 0}}
