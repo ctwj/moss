@@ -16,7 +16,15 @@
             <span class="ml-3"><i class="mr-1 icon icon-view"></i>{{ Data.Views }}</span>
             {{ end }}
         </p>
+        <div style="{{ if Data.DownloadPaused }}filter: blur(6px); opacity:0.55; user-select:none; pointer-events:none;{{ end }}">
         {{ Data.Content | raw}}
+        </div>
+
+        {{ if Data.DownloadPaused }}
+        <div class="my-4 p-4 rounded border border-red-300 bg-red-50 text-red-700 dark:bg-neutral-700 dark:border-neutral-600 dark:text-red-300">
+            <strong>由于版权原因，该软件停止下载，请支持正版</strong>
+        </div>
+        {{ end }}
 
         {{ if len(tags) > 0}}
         <ul class="tags text-sm py-6">

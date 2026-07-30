@@ -145,11 +145,19 @@
             </header>
 
             <!-- Article Content -->
-            <div class="bg-white rounded-2xl p-6 md:p-8 shadow-sm border border-gray-100 mb-6">
+            <div class="bg-white rounded-2xl p-6 md:p-8 shadow-sm border border-gray-100 mb-6 relative overflow-hidden" style="{{ if Data.DownloadPaused }}min-height: 22rem;{{ end }}">
                 {{ if Data.Content != "" }}
-                <div class="prose prose-lg max-w-none article-content">
+                <div class="prose prose-lg max-w-none article-content transition-all duration-300" style="{{ if Data.DownloadPaused }}filter: blur(7px); -webkit-filter: blur(7px); opacity: 0.55; user-select: none; pointer-events: none;{{ end }}">
                     {{ Data.Content | raw }}
                 </div>
+                {{ if Data.DownloadPaused }}
+                <!-- 正文版权遮罩：隐藏正文（保留占位，非移除） -->
+                <div class="absolute inset-0 flex flex-col items-center justify-center p-6 pointer-events-none text-center">
+                    <img src="/notify.svg" alt="版权提示插画" class="w-36 md:w-44 mb-3 select-none pointer-events-none" loading="lazy" decoding="async" />
+                    <p class="font-bold text-red-700 mb-1">由于版权原因，正文内容暂不可阅读</p>
+                    <p class="text-sm text-red-600">请支持正版</p>
+                </div>
+                {{ end }}
                 {{ else }}
                 <div class="text-center py-12 text-gray-500">
                     <i class="fas fa-file-alt text-4xl mb-4 text-gray-300"></i>
@@ -158,9 +166,23 @@
                 {{ end }}
             </div>
 
+            <!-- 版权下架提示横幅 -->
+            {{ if Data.DownloadPaused }}
+            <div class="bg-red-50 border border-red-200 rounded-2xl p-5 mb-6 flex items-start">
+                <div class="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center mr-3 flex-shrink-0">
+                    <i class="fas fa-exclamation-circle text-red-500"></i>
+                </div>
+                <div>
+                    <p class="font-bold text-red-700">由于版权原因，该软件停止下载</p>
+                    <p class="text-sm text-red-600 mt-1">请支持正版</p>
+                </div>
+            </div>
+            {{ end }}
+
             <!-- Download Resources Section -->
             {{ if len(Data.DownloadList) > 0 }}
-            <div id="download-section" class="bg-white rounded-2xl p-6 md:p-8 shadow-sm border border-gray-100 mb-6">
+            <div id="download-section" class="bg-white rounded-2xl p-6 md:p-8 shadow-sm border border-gray-100 mb-6 relative overflow-hidden" style="{{ if Data.DownloadPaused }}min-height: 22rem;{{ end }}">
+                <div class="transition-all duration-300" style="{{ if Data.DownloadPaused }}filter: blur(7px); -webkit-filter: blur(7px); opacity: 0.55; user-select: none; pointer-events: none;{{ end }}">
                 <h2 class="text-xl font-bold text-gray-900 mb-6 flex items-center">
                     <div class="w-10 h-10 bg-gray-100 rounded-xl flex items-center justify-center mr-3">
                         <i class="fas fa-cloud-download-alt text-gray-600"></i>
@@ -190,13 +212,21 @@
                         </div>
                         <a href="/download/{{ download.Slug }}?type={{ download.Type }}"
                            target="_blank"
-                           rel="nofollow noopener"
                            class="ml-3 flex-shrink-0 inline-flex items-center px-4 py-2 bg-primary-500 text-white text-sm font-medium rounded-lg hover:bg-primary-600 transition-colors shadow-sm hover:shadow">
                             <i class="fas fa-download mr-1.5"></i>下载
                         </a>
                     </div>
                     {{ end }}
                 </div>
+                </div>
+                {{ if Data.DownloadPaused }}
+                <!-- 下载区版权遮罩：隐藏下载按钮（保留占位，非移除） -->
+                <div class="absolute inset-0 flex flex-col items-center justify-center p-6 pointer-events-none text-center">
+                    <img src="/notify.svg" alt="版权提示插画" class="w-36 md:w-44 mb-3 select-none pointer-events-none" loading="lazy" decoding="async" />
+                    <p class="font-bold text-red-700 mb-1">由于版权原因，停止提供下载链接</p>
+                    <p class="text-sm text-red-600">请支持正版</p>
+                </div>
+                {{ end }}
             </div>
             {{ end }}
         </article>
@@ -204,14 +234,14 @@
         <!-- Sidebar -->
         <aside class="w-full lg:w-80 flex-shrink-0">
             <!-- Software Info Card -->
-            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 mb-6 overflow-hidden">
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 mb-6 sticky top-24 overflow-hidden">
                 {{ if Data.Thumbnail != "" }}
                 <div class="relative">
                     <img src="{{ Data.Thumbnail }}" alt="{{ Data.Title }}" class="w-full h-40 object-cover" loading="lazy" decoding="async" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI4MCIgaGVpZ2h0PSI4MCIgdmlld0JveD0iMCAwIDgwIDgwIj48cmVjdCB3aWR0aD0iODAiIGhlaWdodD0iODAiIGZpbGw9IiNlNWU3ZWIiLz48cGF0aCBkPSJNMTAgMzBoNjBWMTBoLTYwVjMwaDZ6bTAgNDBoNjB2NTBoLTYwVjcwaDZ6bTMwIDM1YzE2LjYyNyAwIDMwLTEzLjM3MyAzMC0zMHMtMTMuMzczLTMwLTMwLTMwLTMwIDEzLjM3My0zMCAzMCAxMy4zNzMgMzAgMzAgMzB6IiBmaWxsPSIjOTRhNmJjIi8+PHJlY3QgeD0iMjAiIHk9IjQ1IiB3aWR0aD0iNDAiIGhlaWdodD0iMjAiIGZpbGw9IiNmZmYiLz48L3N2Zz4='">
                     <div class="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" aria-hidden="true"></div>
                 </div>
                 {{ end }}
-
+                
                 <div class="p-5">
                     <!-- 软件信息 -->
                     {{ if len(Data.SidebarInfo) > 0 }}
@@ -227,19 +257,23 @@
                         {{ end }}
                     </div>
                     {{ end }}
+
+                    <!-- 下载按钮 -->
+                    {{ if Data.DownloadPaused }}
+                    <a {{ if Data.GenuineURL != "" }}href="{{ Data.GenuineURL }}" target="_blank"{{ else }}href="#"{{ end }}
+                       class="w-full inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-red-500 to-orange-500 text-white font-medium rounded-xl hover:from-red-600 hover:to-orange-600 transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5">
+                        <i class="fas fa-crown mr-2"></i>
+                        请支持正版
+                    </a>
+                    {{ else if len(Data.DownloadList) > 0 }}
+                    <a href="#download-section"
+                       class="w-full inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-primary-500 to-blue-500 text-white font-medium rounded-xl hover:from-primary-600 hover:to-blue-600 transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5">
+                        <i class="fas fa-download mr-2"></i>
+                        立即下载
+                    </a>
+                    {{ end }}
                 </div>
             </div>
-
-            <!-- Sticky Download Button -->
-            {{ if len(Data.DownloadList) > 0 }}
-            <div class="sticky top-20 z-10 mb-6">
-                <a href="#download-section"
-                   class="w-full inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-primary-500 to-blue-500 text-white font-medium rounded-xl hover:from-primary-600 hover:to-blue-600 transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5">
-                    <i class="fas fa-download mr-2"></i>
-                    立即下载
-                </a>
-            </div>
-            {{ end }}
 
             <!-- Related Articles -->
             {{ relatedArticles := Article().Limit(5).Order("views desc").ListByCategoryID(Data.CategoryID) }}

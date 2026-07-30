@@ -1,0 +1,28 @@
+{{extends "./layout/layout.html"}}
+
+{{block main()}}
+<div class="container mx-auto max-w-2xl py-12 md:py-16">
+    <div class="bg-white rounded-2xl p-8 md:p-12 shadow-sm border border-gray-100 text-center">
+        <!-- 插画 -->
+        <img src="/notify.svg" alt="版权提示插画" class="w-52 md:w-60 mx-auto mb-6 select-none pointer-events-none" loading="lazy" decoding="async" />
+
+        <span class="inline-block px-3 py-1 mb-3 text-xs font-medium text-red-600 bg-red-50 rounded-full border border-red-100">HTTP 451 · 版权提示</span>
+        <h1 class="text-2xl md:text-3xl font-bold text-gray-900 mb-3">由于版权原因，该软件停止下载</h1>
+        <p class="text-gray-500 mb-8 max-w-md mx-auto leading-relaxed">由于版权原因，停止提供下载链接，请支持正版。</p>
+
+        <div class="flex flex-col sm:flex-row gap-3 justify-center">
+            {{ if Data.GenuineURL != "" }}
+            <a href="{{ Data.GenuineURL }}" target="_blank" rel="noopener noreferrer" class="cursor-pointer px-6 py-3 bg-gradient-to-r from-primary-500 to-blue-500 text-white rounded-xl font-medium hover:from-primary-600 hover:to-blue-600 transition-all inline-flex items-center justify-center shadow-md hover:shadow-lg hover:-translate-y-0.5">
+                <i class="fas fa-crown mr-2"></i>请支持正版
+            </a>
+            {{ end }}
+            <a href="/" class="cursor-pointer px-6 py-3 bg-white border border-gray-200 text-gray-700 rounded-xl font-medium hover:bg-gray-50 transition-all inline-flex items-center justify-center">
+                <i class="fas fa-home mr-2"></i>返回首页
+            </a>
+            <button onclick="history.back()" class="cursor-pointer px-6 py-3 bg-white border border-gray-200 text-gray-700 rounded-xl font-medium hover:bg-gray-50 transition-all inline-flex items-center justify-center">
+                <i class="fas fa-arrow-left mr-2"></i>返回上页
+            </button>
+        </div>
+    </div>
+</div>
+{{end}}
