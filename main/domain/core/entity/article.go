@@ -22,6 +22,8 @@ type ArticleBase struct {
 	Thumbnail   string `gorm:"type:varchar(250);default:''"              json:"thumbnail"`
 	Description string `gorm:"type:varchar(250);default:''"              json:"description"`
 	Status      bool   `gorm:"type:boolean;default:false;index"          json:"status"` // 发布状态 true:已发布 false:未发布
+	DownloadPaused bool   `gorm:"type:boolean;default:false;index"          json:"download_paused"` // 下载暂停（版权下架） true:已暂停 false:正常
+	GenuineURL     string `gorm:"type:varchar(500);default:''"              json:"genuine_url"`     // 正版页面 URL（「请支持正版」跳转目标）
 }
 
 func (ArticleBase) TableName() string {

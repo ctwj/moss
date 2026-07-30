@@ -6,6 +6,7 @@ import (
 	"moss/domain/core/repository"
 	"moss/domain/core/repository/context"
 	"moss/infrastructure/general/message"
+	"moss/infrastructure/support/cache"
 	"strings"
 	"time"
 )
@@ -422,6 +423,37 @@ func (s *ArticleService) EnableArticle(id int) error {
 // DisableArticle 禁用文章（未发布）
 func (s *ArticleService) DisableArticle(id int) error {
 	return repository.Article.DisableArticle(id)
+}
+
+// PauseDownload 暂停文章下载（版权下架），并记录正版 URL；同步失效该文章前台缓存
+func (s *ArticleService) PauseDownload(id int, genuineURL string) error {
+	article, err := repository.Article.Get(id)
+	if err != nil {
+		return err
+	}
+	if err := repository.Article.PauseDownload(id, genuineURL); err != nil {
+		return err
+	}
+	// best-effort 失效文章页缓存（缓存未开启时返回 error，忽略即可）
+	if article != nil && article.ID != 0 {
+		_ = cache.InvalidateArticleCache(article.URL())
+	}
+	return nil
+}
+
+// ResumeDownload 恢复文章下载；同步失效该文章前台缓存
+func (s *ArticleService) ResumeDownload(id int) error {
+	article, err := repository.Article.Get(id)
+	if err != nil {
+		return err
+	}
+	if err := repository.Article.ResumeDownload(id); err != nil {
+		return err
+	}
+	if article != nil && article.ID != 0 {
+		_ = cache.InvalidateArticleCache(article.URL())
+	}
+	return nil
 }
 
 // ListUngeneratedArticles 获取未生成 SEO 内容的文章列表

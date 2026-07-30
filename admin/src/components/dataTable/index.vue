@@ -75,6 +75,16 @@
       </a-tag>
     </template>
 
+    <template #articleDownloadStatus="{ record,rowIndex,column }">
+      <a-tag
+        :color="record.download_paused ? 'red' : 'green'"
+        @click="confirmArticleDownloadStatus(record)"
+        style="cursor: pointer"
+      >
+        {{ record.download_paused ? $t('downloadPaused') : $t('downloadable') }}
+      </a-tag>
+    </template>
+
     <template #category="{ record,rowIndex,column }">
       <span>{{ getCategoryName(record[column.dataIndex]) }}</span>
     </template>
@@ -118,6 +128,16 @@
       </a-form>
   </a-modal>
 
+  <!-- 暂停下载（版权下架）弹窗：录入正版页面 URL -->
+  <a-modal v-model:visible="pauseDownloadVisible" :title="$t('pauseDownload')" :ok-text="$t('confirm')" :cancel-text="$t('cancel')" @ok="submitPauseDownload" @cancel="pauseDownloadVisible=false">
+    <a-form layout="vertical">
+      <a-form-item :label="$t('genuineUrl')">
+        <a-input v-model="genuineUrlInput" :placeholder="$t('genuineUrlPlaceholder')" allow-clear />
+      </a-form-item>
+      <div class="text-gray-400 text-xs">{{ $t('confirmPauseDownloadMessage') }}</div>
+    </a-form>
+  </a-modal>
+
 </template>
 
 <script setup>
@@ -140,7 +160,7 @@
     tableBatchDelete,
     tableGet,
     tableCreate,
-    tableUpdate, linkStatus, storePost, articleStatus,
+    tableUpdate, linkStatus, storePost, articleStatus, articleDownloadStatus,
   } from "@/api/index.js";
   import {
     batchDeleteOption,
@@ -298,6 +318,35 @@
 
   const { run:runLinkStatus } = useRequest(linkStatus, {manual:true})
   const { run:runArticleStatus } = useRequest(articleStatus, {manual:true, onSuccess: refreshList})
+  const { run:runArticleDownloadStatus } = useRequest(articleDownloadStatus, {manual:true, onSuccess: refreshList})
+
+  // 下载暂停/恢复（版权下架）
+  const pauseDownloadVisible = ref(false)
+  const pauseRecord = ref(null)
+  const genuineUrlInput = ref('')
+  function confirmArticleDownloadStatus(record){
+    if(record.download_paused){
+      Modal.confirm({
+        title: t('confirmResumeDownload'),
+        content: t('confirmResumeDownloadMessage'),
+        okText: t('confirm'),
+        cancelText: t('cancel'),
+        onOk: () => {
+          runArticleDownloadStatus(record.id, { download_paused:false })
+        }
+      })
+    } else {
+      pauseRecord.value = record
+      genuineUrlInput.value = record.genuine_url || ''
+      pauseDownloadVisible.value = true
+    }
+  }
+  function submitPauseDownload(){
+    if(pauseRecord.value){
+      runArticleDownloadStatus(pauseRecord.value.id, { download_paused:true, genuine_url: genuineUrlInput.value })
+    }
+    pauseDownloadVisible.value = false
+  }
 
   function confirmArticleStatus(record){
     Modal.confirm({

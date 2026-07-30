@@ -123,3 +123,12 @@ The admin panel uses Vue 3 with Vite:
 2. Define DTOs in `main/api/web/dto/`
 3. Update routers in `main/api/web/router/`
 4. Add middleware if needed in `main/api/web/middleware/`
+
+<!-- SPECKIT START -->
+## Active Spec Kit Feature
+
+- **Feature**: 暂停下载（版权下架） — `specs/001-pause-download/`
+- **Active plan**: `specs/001-pause-download/plan.md`
+- Artifacts: `spec.md` · `research.md` · `data-model.md` · `contracts/api.md` · `quickstart.md` · `checklists/requirements.md`
+- Next: `/speckit-tasks` (生成任务) → `/speckit-implement` (执行)
+<!-- SPECKIT END -->

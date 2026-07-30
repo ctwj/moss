@@ -142,6 +142,9 @@ func (r *RenderService) Article(item *entity.Article) (_ []byte, err error) {
 	articleMap["Content"] = r.replaceTagLinks(item.Content)
 	articleMap["Extends"] = item.Extends
 	articleMap["Res"] = item.Res
+	// 下载暂停（版权下架）状态与正版引导 URL
+	articleMap["DownloadPaused"] = item.ArticleBase.DownloadPaused
+	articleMap["GenuineURL"] = item.ArticleBase.GenuineURL
 
 	// 关键字拆分
 	var keywordList []string

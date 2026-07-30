@@ -342,6 +342,17 @@ func (r *ArticleRepo) DisableArticle(id int) error {
 	return db.DB.Model(&entity.ArticleBase{}).Where("id = ?", id).UpdateColumn("status", false).Error
 }
 
+// PauseDownload 暂停文章下载（版权下架），并写入正版 URL
+func (r *ArticleRepo) PauseDownload(id int, genuineURL string) error {
+	return db.DB.Model(&entity.ArticleBase{}).Where("id = ?", id).
+		Updates(map[string]any{"download_paused": true, "genuine_url": genuineURL}).Error
+}
+
+// ResumeDownload 恢复文章下载（保留 genuine_url 便于再次暂停）
+func (r *ArticleRepo) ResumeDownload(id int) error {
+	return db.DB.Model(&entity.ArticleBase{}).Where("id = ?", id).UpdateColumn("download_paused", false).Error
+}
+
 // ListUngeneratedArticles 获取未生成 SEO 内容的文章列表
 // skipPublished: 是否跳过已发布文章
 // forceRegenerate: 是否强制重新生成（忽略已生成标记）

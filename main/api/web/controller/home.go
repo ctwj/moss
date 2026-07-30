@@ -159,6 +159,25 @@ func HomeDownloadRedirect(ctx *fiber.Ctx) error {
 		return ctx.SendStatus(404)
 	}
 
+	// 版权下架（下载暂停）拦截：不重定向、不暴露真实下载地址
+	if article.ArticleBase.DownloadPaused {
+		b, err := template.Render("template/downloadPaused.html", template.Binds{
+			Page: template.Page{
+				Name: "downloadPaused",
+				Path: ctx.Path(),
+			},
+			Data: map[string]any{
+				"GenuineURL": article.ArticleBase.GenuineURL,
+				"Title":      article.Title,
+			},
+		})
+		if err != nil {
+			log.Error("render download paused page failed", log.Err(err))
+			return ctx.SendStatus(500)
+		}
+		return ctx.Type("html", "utf-8").Status(451).SendString(string(b))
+	}
+
 	// 在 res 字段中查找对应类型的下载链接
 	var downloadURL string
 	for _, resItem := range article.Res {

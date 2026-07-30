@@ -157,3 +157,24 @@ func ArticleStatus(ctx *fiber.Ctx) error {
 	}
 	return ctx.JSON(mapper.MessageResult(err))
 }
+
+// ArticleDownloadStatus 更新文章下载状态（版权下架/恢复）
+func ArticleDownloadStatus(ctx *fiber.Ctx) error {
+	id, err := ctx.ParamsInt("id")
+	if err != nil {
+		return ctx.JSON(mapper.MessageResult(err))
+	}
+	var item struct {
+		DownloadPaused bool   `json:"download_paused"`
+		GenuineURL     string `json:"genuine_url"`
+	}
+	if err := ctx.BodyParser(&item); err != nil {
+		return ctx.JSON(mapper.MessageResult(err))
+	}
+	if item.DownloadPaused {
+		err = service.Article.PauseDownload(id, item.GenuineURL)
+	} else {
+		err = service.Article.ResumeDownload(id)
+	}
+	return ctx.JSON(mapper.MessageResult(err))
+}

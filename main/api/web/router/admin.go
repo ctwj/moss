@@ -52,6 +52,7 @@ func (r *Router) api(route fiber.Router) {
 	route.Post("/article/deleteTagByIds/:id", controller.ArticleDeleteTagByIds)
 	route.Post("/article/batchSetCategory/:category_id", controller.ArticleBatchSetCategory)
 	route.Post("/article/status/:id", controller.ArticleStatus)
+	route.Post("/article/downloadStatus/:id", controller.ArticleDownloadStatus)
 
 	// category
 	route.Get("/category/list", controller.CategoryList)

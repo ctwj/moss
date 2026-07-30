@@ -68,6 +68,13 @@
       align:'center',
     },
     {
+      title: t('downloadStatus'),
+      dataIndex: 'download_paused',
+      slotName:'articleDownloadStatus',
+      width: 80,
+      align:'center',
+    },
+    {
       title: t('createTime'),
       dataIndex: 'create_time',
       slotName:'time',
