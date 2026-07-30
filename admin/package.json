@@ -37,5 +37,12 @@
     "vite-plugin-pwa": "^0.16.4",
     "workbox-build": "^6.5.4",
     "workbox-window": "^6.5.4"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "less",
+      "vue-demi"
+    ]
   }
 }
