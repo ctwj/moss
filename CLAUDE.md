@@ -127,8 +127,8 @@ The admin panel uses Vue 3 with Vite:
 <!-- SPECKIT START -->
 ## Active Spec Kit Feature
 
-- **Feature**: 暂停下载（版权下架） — `specs/001-pause-download/`
-- **Active plan**: `specs/001-pause-download/plan.md`
+- **Feature**: 修复失效图床图片 — `specs/002-fix-broken-images/`
+- **Active plan**: `specs/002-fix-broken-images/plan.md`
 - Artifacts: `spec.md` · `research.md` · `data-model.md` · `contracts/api.md` · `quickstart.md` · `checklists/requirements.md`
 - Next: `/speckit-tasks` (生成任务) → `/speckit-implement` (执行)
 <!-- SPECKIT END -->

@@ -343,6 +343,70 @@ func (r *ArticleRepo) DisableArticle(id int) error {
 }
 
 // PauseDownload 暂停文章下载（版权下架），并写入正版 URL
+// ListArticlesWithImageDomain 获取引用了指定域名图片的文章列表（失效图片修复用）
+// domain: 失效图床域名，用于正向匹配缩略图或正文
+// limit: 最大返回数量
+// 不筛发布状态：已发布与未发布文章均纳入修复范围
+func (r *ArticleRepo) ListArticlesWithImageDomain(domain string, limit int) (res []*entity.Article, err error) {
+	if limit <= 0 {
+		limit = 1000
+	}
+
+	err = db.DB.Transaction(func(tx *gorm.DB) error {
+		query := tx.Model(&entity.ArticleBase{}).
+			Select("article.*, article_detail.*").
+			Joins("LEFT JOIN article_detail ON article.id = article_detail.article_id").
+			Where(
+				"article.thumbnail LIKE ? OR article_detail.content LIKE ?",
+				"%"+domain+"%",
+				"%"+domain+"%",
+			)
+
+		// 按ID升序排列，获取指定数量
+		var articleBases []entity.ArticleBase
+		var articleDetails []entity.ArticleDetail
+
+		if err := query.Order("article.id ASC").Limit(limit).Find(&articleBases).Error; err != nil {
+			return err
+		}
+
+		if len(articleBases) == 0 {
+			return nil
+		}
+
+		// 收集文章ID
+		articleIDs := make([]int, len(articleBases))
+		for i, base := range articleBases {
+			articleIDs[i] = base.ID
+		}
+
+		// 查询详情
+		if err := tx.Model(&entity.ArticleDetail{}).
+			Where("article_id IN ?", articleIDs).
+			Find(&articleDetails).Error; err != nil {
+			return err
+		}
+
+		// 组装结果
+		detailMap := make(map[int]entity.ArticleDetail)
+		for _, detail := range articleDetails {
+			detailMap[detail.ArticleID] = detail
+		}
+
+		res = make([]*entity.Article, len(articleBases))
+		for i, base := range articleBases {
+			article := &entity.Article{ArticleBase: base}
+			if detail, ok := detailMap[base.ID]; ok {
+				article.ArticleDetail = detail
+			}
+			res[i] = article
+		}
+
+		return nil
+	})
+	return
+}
+
 func (r *ArticleRepo) PauseDownload(id int, genuineURL string) error {
 	return db.DB.Model(&entity.ArticleBase{}).Where("id = ?", id).
 		Updates(map[string]any{"download_paused": true, "genuine_url": genuineURL}).Error

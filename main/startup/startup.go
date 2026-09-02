@@ -59,6 +59,7 @@ func initPlugins() {
 		plugins.NewAISeoPlugin(),
 		plugins.NewExternalLinkPlugin(),
 		plugins.NewDirectLinkDownload(),
+		plugins.NewFixBrokenImages(),
 	)
 
 }
