@@ -21,6 +21,7 @@ import (
 	"moss/domain/config"
 	"moss/domain/core/entity"
 	"moss/domain/core/repository"
+	"moss/domain/core/vo"
 	pluginEntity "moss/domain/support/entity"
 	"moss/infrastructure/persistent/storage"
 	"moss/infrastructure/support/cache"
@@ -28,17 +29,22 @@ import (
 	"moss/infrastructure/utils/request"
 )
 
-// FixBrokenImages 修复失效图床图片插件
-// 从文章保存的历史数据源（源站页面）恢复缩略图与正文图片，并转存到当前上传图床（Upload.Domain）。
-// 修复采用「全有或全无」策略：单篇文章的映射与转存全部成功才写库，任何失败保持原状。
+// FixBrokenImages 修复文章图片插件
+// 修复两类问题：
+//  1. 缺图：文章无缩略图 / 正文无图片 → 访问历史数据源（源站页面）获取图片，
+//     恢复缩略图并将图片插入正文最前面，转存到当前上传图床（Upload.Domain）
+//  2. 失效引用：缩略图或正文 <img> 引用了失效图床域名 → 用源页图片替换
+//
+// 源页面上确实无图的文章会被标记（extends.image_repair_failed），后续批次跳过，避免无限重扫。
 type FixBrokenImages struct {
-	BrokenDomain        string `json:"broken_domain"`        // 失效图床域名（如 image.08rj.com）
-	BatchSize           int    `json:"batch_size"`           // 单次执行处理的文章数量
+	BrokenDomain        string `json:"broken_domain"`         // 失效图床域名（如 image.08rj.com，可选）
+	BatchSize           int    `json:"batch_size"`            // 单次执行处理的文章数量
 	FetchTimeoutSeconds int    `json:"fetch_timeout_seconds"` // 抓取源页面/图片的超时时间（秒）
 	RateLimitPerMinute  int    `json:"rate_limit_per_minute"` // 对源站的请求频率限制（次/分钟）
 	DownRetry           int    `json:"down_retry"`            // 下载失败重试次数
 	DownReferer         string `json:"down_referer"`          // 下载 referer（可选，留空使用源页面地址）
 	UserAgent           string `json:"user_agent"`            // 请求 UA（可选，留空使用默认）
+	RetryFailed         bool   `json:"retry_failed"`          // 重试已标记「源页无图」的文章
 
 	ctx           *pluginEntity.Plugin
 	limiter       *rate.Limiter
@@ -50,9 +56,12 @@ const (
 	repairStatusOK      = "ok"
 	repairStatusFail    = "fail"
 	repairStatusSkipped = "skipped"
+
+	// markerImageRepairFailed 源页面上找不到任何图片的标记（写入文章 extends，防无限重扫）
+	markerImageRepairFailed = "image_repair_failed"
 )
 
-// 缩略图候选选择器（og 优先，twitter 次之），与 spec FR-3 一致
+// 缩略图候选选择器（og 优先，twitter 次之）
 var fixBrokenThumbSelectors = []string{
 	"meta[property='og:image']",
 	"meta[property='twitter:image']",
@@ -83,8 +92,8 @@ func NewFixBrokenImages() *FixBrokenImages {
 func (p *FixBrokenImages) Info() *pluginEntity.PluginInfo {
 	return &pluginEntity.PluginInfo{
 		ID:         "FixBrokenImages",
-		About:      "修复失效图床图片（从历史数据源恢复缩略图与正文图片，转存新图床）",
-		RunEnable:  true, // 允许手动执行（分批触发，修复成功者自动脱离候选集）
+		About:      "修复文章图片（无缩略图/正文无图时从历史数据源恢复，图片插入正文最前面；同时替换失效图床引用）",
+		RunEnable:  true, // 允许手动执行（分批触发，已修复者自动脱离候选集）
 		CronEnable: false,
 	}
 }
@@ -179,6 +188,8 @@ func (p *FixBrokenImages) transferImage(imgURL, referer string) (string, error) 
 	return res.URL, nil
 }
 
+// ---- 提取（纯函数，可单测） ----
+
 // extractImageURLFromSelection 从元素上按优先级取图片地址（meta 读 content，img 读 src/data-src/data-lazy-src）
 func extractImageURLFromSelection(sel *goquery.Selection) string {
 	for _, attr := range []string{"content", "src", "data-src", "data-lazy-src"} {
@@ -221,7 +232,7 @@ func findContentContainer(doc *goquery.Document) *goquery.Selection {
 	return nil
 }
 
-// extractThumbnailImage 从源页面提取缩略图候选（og:image → twitter:image → 正文第一张图），已绝对化
+// extractThumbnailImage 从源页面提取恢复图（og:image → twitter:image → 正文第一张图），已绝对化
 func extractThumbnailImage(doc *goquery.Document, baseURL *url.URL, brokenDomain string) string {
 	for _, selector := range fixBrokenThumbSelectors {
 		sel := doc.Find(selector).First()
@@ -237,7 +248,7 @@ func extractThumbnailImage(doc *goquery.Document, baseURL *url.URL, brokenDomain
 			return abs
 		}
 	}
-	// 回退：正文第一张图（spec FR-3）
+	// 回退：正文第一张图
 	if container := findContentContainer(doc); container != nil {
 		img := container.Find("img").First()
 		if img.Length() > 0 {
@@ -271,9 +282,14 @@ func extractContentImages(doc *goquery.Document, baseURL *url.URL, brokenDomain 
 	return list
 }
 
+// ---- 正文判定与替换（纯函数，可单测） ----
+
 // contentBrokenImages 文章正文中引用了失效域名的 img 元素（按出现顺序）
 func contentBrokenImages(doc *goquery.Document, brokenDomain string) []*goquery.Selection {
 	var list []*goquery.Selection
+	if brokenDomain == "" {
+		return list
+	}
 	doc.Find("img").Each(func(_ int, sel *goquery.Selection) {
 		src, ok := sel.Attr("src")
 		if !ok || strings.TrimSpace(src) == "" {
@@ -288,6 +304,9 @@ func contentBrokenImages(doc *goquery.Document, brokenDomain string) []*goquery.
 
 // contentHasBrokenImage 正文 img 是否引用了失效域名（仅 img src 维度，不误伤正文文本中的域名描述）
 func contentHasBrokenImage(contentHTML, brokenDomain string) bool {
+	if brokenDomain == "" {
+		return false
+	}
 	doc, err := goquery.NewDocumentFromReader(strings.NewReader(contentHTML))
 	if err != nil {
 		return false
@@ -295,16 +314,61 @@ func contentHasBrokenImage(contentHTML, brokenDomain string) bool {
 	return len(contentBrokenImages(doc, brokenDomain)) > 0
 }
 
-// needsRepair 文章是否需要修复（缩略图或正文 img 引用了失效域名）
-func needsRepair(item *entity.Article, brokenDomain string) bool {
-	if strings.Contains(item.Thumbnail, brokenDomain) {
-		return true
+// contentHasAnyImage 正文是否包含任何图片（任一 <img src> 非空）
+func contentHasAnyImage(contentHTML string) bool {
+	doc, err := goquery.NewDocumentFromReader(strings.NewReader(contentHTML))
+	if err != nil {
+		return false
 	}
-	return contentHasBrokenImage(item.Content, brokenDomain)
+	found := false
+	doc.Find("img").Each(func(_ int, sel *goquery.Selection) {
+		if src, ok := sel.Attr("src"); ok && strings.TrimSpace(src) != "" {
+			found = true
+		}
+	})
+	return found
+}
+
+// repairNeeds 一篇文章的修复需求
+type repairNeeds struct {
+	missingThumb      bool // 无缩略图
+	brokenThumb       bool // 缩略图引用失效域名
+	missingContentImg bool // 正文不含任何图片
+	brokenContent     bool // 正文 img 引用失效域名
+}
+
+func (n repairNeeds) any() bool {
+	return n.missingThumb || n.brokenThumb || n.missingContentImg || n.brokenContent
+}
+
+func (n repairNeeds) actions() string {
+	var parts []string
+	if n.missingThumb {
+		parts = append(parts, "thumb:restored")
+	} else if n.brokenThumb {
+		parts = append(parts, "thumb:replaced")
+	}
+	if n.missingContentImg {
+		parts = append(parts, "content:prepend")
+	}
+	if n.brokenContent {
+		parts = append(parts, "content:replaced")
+	}
+	return strings.Join(parts, ",")
+}
+
+// inspectRepairNeeds 判定文章的修复需求（与仓储候选条件保持一致）
+func inspectRepairNeeds(item *entity.Article, domain string) repairNeeds {
+	return repairNeeds{
+		missingThumb:      strings.TrimSpace(item.Thumbnail) == "",
+		brokenThumb:       domain != "" && strings.Contains(item.Thumbnail, domain),
+		missingContentImg: !contentHasAnyImage(item.Content),
+		brokenContent:     contentHasBrokenImage(item.Content, domain),
+	}
 }
 
 // planContentReplacement 为正文失效图片计算替换计划：第 N 个失效 img ← 第 N 个源图。
-// 源图不足时返回错误（全有或全无：调用方不得执行改写）。
+// 源图不足时返回错误（调用方不得执行改写）。
 func planContentReplacement(contentHTML, brokenDomain string, sourceImages []string) ([]string, error) {
 	doc, err := goquery.NewDocumentFromReader(strings.NewReader(contentHTML))
 	if err != nil {
@@ -333,6 +397,23 @@ func applyContentReplacements(contentHTML, brokenDomain string, newURLs []string
 	return doc.Find("body").Html()
 }
 
+// prependImage 将图片插入正文最前面（包一层 <p> 保证块级展示与间距）
+func prependImage(contentHTML, imageURL string) string {
+	return fmt.Sprintf(`<p><img src="%s" alt=""></p>`, imageURL) + contentHTML
+}
+
+// markImageRepairFailed 在文章 extends 中写入「源页无图」标记
+func markImageRepairFailed(item *entity.Article) {
+	if item.Extends.Get(markerImageRepairFailed) == nil {
+		item.Extends = append(item.Extends, vo.ExtendsItem{
+			Key:   markerImageRepairFailed,
+			Value: "1",
+		})
+	}
+}
+
+// ---- 执行 ----
+
 func (p *FixBrokenImages) logOne(msg string, item *entity.Article, fields ...zap.Field) {
 	if p.ctx == nil || p.ctx.Log == nil {
 		return
@@ -347,10 +428,19 @@ func (p *FixBrokenImages) failOne(item *entity.Article, reason string) string {
 }
 
 // repairOne 修复单篇文章，返回 ok/fail/skipped。
-// 流程：失效判定 → 读历史数据源 → 抓源页 → 提取 → 映射与转存 → 断言 → 全部成功才写库并失效缓存。
+// 流程：需求判定 → 标记跳过 → 读历史数据源 → 抓源页 → 提取恢复图 →
+//
+//	缩略图恢复/替换 + 正文插首图 + 失效引用替换 → 写库 → 失效缓存。
+//	源页可达但确无任何图片时写入标记，后续批次跳过。
 func (p *FixBrokenImages) repairOne(item *entity.Article, domain string) string {
-	if !needsRepair(item, domain) {
+	needs := inspectRepairNeeds(item, domain)
+	if !needs.any() {
 		p.logOne(fmt.Sprintf("repair skipped id=%d reason=no_broken_refs", item.ID), item)
+		return repairStatusSkipped
+	}
+	// 已标记「源页无图」的文章跳过，避免每次批次重复抓取（可用 retry_failed 选项重试）
+	if !p.RetryFailed && item.Extends.Get(markerImageRepairFailed) != nil {
+		p.logOne(fmt.Sprintf("repair skipped id=%d reason=marked_failed", item.ID), item)
 		return repairStatusSkipped
 	}
 
@@ -378,24 +468,41 @@ func (p *FixBrokenImages) repairOne(item *entity.Article, domain string) string 
 		return p.failOne(item, "source_unreachable")
 	}
 
-	// 3. 缩略图修复计划（og:image 缺失时回退正文第一张图）
+	// 3. 恢复图（og:image → twitter:image → 正文第一张图），缺图与失效缩略图共用
+	recovered := extractThumbnailImage(doc, baseURL, domain)
+
+	// 4. 缩略图：缺失则恢复，失效则替换
 	var newThumbnail string
-	if strings.Contains(oldThumbnail, domain) {
-		candidate := extractThumbnailImage(doc, baseURL, domain)
-		if candidate == "" {
-			return p.failOne(item, "no_valid_images")
-		}
-		newThumbnail, err = p.transferImage(candidate, sourceURL)
-		if err != nil {
-			p.logOne(fmt.Sprintf("repair fail id=%d reason=transfer_failed image=%s", item.ID, candidate), item, zap.Error(err))
-			return repairStatusFail
+	if needs.missingThumb || needs.brokenThumb {
+		if recovered == "" {
+			// 源页无候选图：继续尝试正文侧修复，最后统一判定
+		} else {
+			newThumbnail, err = p.transferImage(recovered, sourceURL)
+			if err != nil {
+				p.logOne(fmt.Sprintf("repair fail id=%d reason=transfer_failed image=%s", item.ID, recovered), item, zap.Error(err))
+				return repairStatusFail
+			}
 		}
 	}
 
-	// 4. 正文修复计划：第 N 个失效 img ← 第 N 张源图（先全部转存，再改写）
+	// 5. 正文：无图则把恢复图插入最前面
+	var contentPrefix string
+	if needs.missingContentImg && recovered != "" {
+		imgURL := newThumbnail
+		if imgURL == "" {
+			imgURL, err = p.transferImage(recovered, sourceURL)
+			if err != nil {
+				p.logOne(fmt.Sprintf("repair fail id=%d reason=transfer_failed image=%s", item.ID, recovered), item, zap.Error(err))
+				return repairStatusFail
+			}
+		}
+		contentPrefix = prependImage("", imgURL)
+	}
+
+	// 6. 正文失效引用替换（保留原有能力：第 N 个失效 img ← 第 N 张源图）
 	var newContent string
-	contentRepaired := 0
-	if contentHasBrokenImage(item.Content, domain) {
+	contentReplaced := 0
+	if needs.brokenContent {
 		sourceImages := extractContentImages(doc, baseURL, domain)
 		plan, err := planContentReplacement(item.Content, domain, sourceImages)
 		if err != nil {
@@ -410,14 +517,32 @@ func (p *FixBrokenImages) repairOne(item *entity.Article, domain string) string 
 			}
 			newURLs = append(newURLs, nu)
 		}
-		newContent, err = applyContentReplacements(item.Content, domain, newURLs)
+		replaced, err := applyContentReplacements(item.Content, domain, newURLs)
 		if err != nil {
 			return p.failOne(item, "no_valid_images")
 		}
-		contentRepaired = len(newURLs)
+		contentPrefix += replaced
+		contentReplaced = len(newURLs)
+		newContent = contentPrefix // 插首段落 + 替换后的完整正文
+	} else if contentPrefix != "" {
+		newContent = contentPrefix + item.Content // 插首段落 + 原正文
 	}
 
-	// 5. 写入前断言（正文按 img src 维度判断，避免误伤正文文本中的域名描述）
+	// 7. 结果判定：无任何可写入的修复 → 记录原因；源页确无图则写标记防止无限重扫
+	if newThumbnail == "" && newContent == "" {
+		if recovered == "" {
+			markImageRepairFailed(item)
+			if err := repository.Article.Update(item); err != nil {
+				p.logOne(fmt.Sprintf("repair fail id=%d reason=update_failed", item.ID), item, zap.Error(err))
+				return repairStatusFail
+			}
+			p.logOne(fmt.Sprintf("repair fail id=%d reason=no_valid_images marked=1", item.ID), item)
+			return repairStatusFail
+		}
+		return p.failOne(item, "no_valid_images")
+	}
+
+	// 8. 写入前断言（正文按 img src 维度判断，避免误伤正文文本中的域名描述）
 	finalThumbnail := oldThumbnail
 	if newThumbnail != "" {
 		finalThumbnail = newThumbnail
@@ -426,15 +551,15 @@ func (p *FixBrokenImages) repairOne(item *entity.Article, domain string) string 
 	if newContent != "" {
 		finalContent = newContent
 	}
-	if strings.Contains(finalThumbnail, domain) || contentHasBrokenImage(finalContent, domain) {
+	if domain != "" && (strings.Contains(finalThumbnail, domain) || contentHasBrokenImage(finalContent, domain)) {
 		return p.failOne(item, "no_valid_images")
 	}
 
-	// 6. 全部就绪，写库 + 失效文章页缓存
+	// 9. 写库 + 失效文章页缓存
 	item.Thumbnail = finalThumbnail
 	item.Content = finalContent
 	if err := repository.Article.Update(item); err != nil {
-		p.logOne("repair fail", item, zap.String("reason", "update_failed"), zap.Error(err))
+		p.logOne(fmt.Sprintf("repair fail id=%d reason=update_failed", item.ID), item, zap.Error(err))
 		return repairStatusFail
 	}
 	if config.Config.Cache.Enable {
@@ -443,28 +568,27 @@ func (p *FixBrokenImages) repairOne(item *entity.Article, domain string) string 
 		}
 	}
 
-	p.logOne(fmt.Sprintf("repair ok id=%d thumbnail=%s->%s content_imgs=%d", item.ID, oldThumbnail, finalThumbnail, contentRepaired), item)
+	p.logOne(fmt.Sprintf("repair ok id=%d actions=%s content_imgs=%d", item.ID, needs.actions(), contentReplaced), item,
+		zap.String("thumbnail", fmt.Sprintf("%s->%s", oldThumbnail, finalThumbnail)))
 	return repairStatusOK
 }
 
-// Run 手动执行一批修复（修复成功者不再含失效域名，自动脱离候选集，可重复执行至全部完成）
+// Run 手动执行一批修复。候选：缺缩略图 / 正文无图 / 引用失效图床域名。
+// 已修复者自动脱离候选集；源页无图者被标记后跳过；可重复执行直至 summary 的 ok=fail=0。
 func (p *FixBrokenImages) Run(ctx *pluginEntity.Plugin) error {
 	if p.ctx == nil {
 		p.ctx = ctx
 	}
 	domain := strings.TrimSpace(p.BrokenDomain)
-	if domain == "" {
-		return errors.New("broken_domain is required")
-	}
 	// 重置批次状态（限频器按当前选项重建，下载去重缓存按批次隔离）
 	p.limiter = nil
 	p.downloadCache = map[string]string{}
 
-	ctx.Log.Info(fmt.Sprintf("repair start batch_size=%d broken_domain=%s", p.batchSize(), domain))
+	ctx.Log.Info(fmt.Sprintf("repair start batch_size=%d broken_domain=%s retry_failed=%v", p.batchSize(), domain, p.RetryFailed))
 
-	articles, err := repository.Article.ListArticlesWithImageDomain(domain, p.batchSize())
+	articles, err := repository.Article.ListArticlesNeedImageRepair(domain, p.batchSize())
 	if err != nil {
-		ctx.Log.Error("query broken articles failed", zap.Error(err))
+		ctx.Log.Error("query repair candidates failed", zap.Error(err))
 		return err
 	}
 	if len(articles) == 0 {

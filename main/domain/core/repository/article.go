@@ -343,24 +343,31 @@ func (r *ArticleRepo) DisableArticle(id int) error {
 }
 
 // PauseDownload 暂停文章下载（版权下架），并写入正版 URL
-// ListArticlesWithImageDomain 获取引用了指定域名图片的文章列表（失效图片修复用）
-// domain: 失效图床域名，用于正向匹配缩略图或正文
-// limit: 最大返回数量
-// 不筛发布状态：已发布与未发布文章均纳入修复范围
-func (r *ArticleRepo) ListArticlesWithImageDomain(domain string, limit int) (res []*entity.Article, err error) {
+// ListArticlesNeedImageRepair 获取图片修复候选文章
+// 候选条件（满足其一）：
+//  1. 缩略图为空（缺缩略图）
+//  2. 正文不含任何 <img>（正文缺图）
+//  3. 缩略图或正文引用了失效图床域名（domain 非空时）
+// limit: 最大返回数量；不筛发布状态
+func (r *ArticleRepo) ListArticlesNeedImageRepair(domain string, limit int) (res []*entity.Article, err error) {
 	if limit <= 0 {
 		limit = 1000
 	}
 
 	err = db.DB.Transaction(func(tx *gorm.DB) error {
+		// 基础条件：缺图（无缩略图 或 正文无 img）
+		where := "article.thumbnail = '' OR article_detail.content NOT LIKE '%<img%'"
+		args := []any{}
+		// 失效域名引用（domain 非空时纳入）
+		if domain != "" {
+			where += " OR article.thumbnail LIKE ? OR article_detail.content LIKE ?"
+			args = append(args, "%"+domain+"%", "%"+domain+"%")
+		}
+
 		query := tx.Model(&entity.ArticleBase{}).
 			Select("article.*, article_detail.*").
 			Joins("LEFT JOIN article_detail ON article.id = article_detail.article_id").
-			Where(
-				"article.thumbnail LIKE ? OR article_detail.content LIKE ?",
-				"%"+domain+"%",
-				"%"+domain+"%",
-			)
+			Where(where, args...)
 
 		// 按ID升序排列，获取指定数量
 		var articleBases []entity.ArticleBase

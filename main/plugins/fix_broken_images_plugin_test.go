@@ -219,48 +219,124 @@ func TestApplyIdempotent(t *testing.T) {
 	}
 }
 
-// ---- needsRepair / contentHasBrokenImage ----
+// ---- inspectRepairNeeds / contentHasAnyImage / prependImage / 标记 ----
 
-// TestNeedsRepair 失效判定：缩略图或正文 img 命中；正文文本提及域名不误判
-func TestNeedsRepair(t *testing.T) {
+// TestInspectRepairNeeds 修复需求判定（与仓储候选条件一致）
+func TestInspectRepairNeeds(t *testing.T) {
 	cases := []struct {
 		name      string
 		thumbnail string
 		content   string
-		expected  bool
+		expected  repairNeeds
 	}{
 		{
-			name:      "缩略图命中",
-			thumbnail: "https://image.08rj.com/a.jpg",
-			content:   "<p>text</p>",
-			expected:  true,
+			name:      "完全正常：不修复",
+			thumbnail: "https://img.08rj.com/a.jpg",
+			content:   `<img src="https://img.08rj.com/b.jpg">`,
+			expected:  repairNeeds{},
 		},
 		{
-			name:      "正文 img 命中",
-			thumbnail: "https://img.08rj.com/fine.jpg",
-			content:   `<img src="https://image.08rj.com/b.jpg">`,
-			expected:  true,
+			name:      "缺缩略图",
+			thumbnail: "",
+			content:   `<img src="https://img.08rj.com/b.jpg">`,
+			expected:  repairNeeds{missingThumb: true},
 		},
 		{
-			name:      "正文文本提及域名不算失效",
-			thumbnail: "https://img.08rj.com/fine.jpg",
-			content:   "<p>原图床 image.08rj.com 已关闭</p>",
-			expected:  false,
+			name:      "正文无图",
+			thumbnail: "https://img.08rj.com/a.jpg",
+			content:   `<p>纯文字内容</p>`,
+			expected:  repairNeeds{missingContentImg: true},
 		},
 		{
-			name:      "新图床地址不算失效（img.08rj.com 不含 image.08rj.com）",
-			thumbnail: "https://img.08rj.com/20260902/x.jpg",
-			content:   `<img src="https://img.08rj.com/20260902/y.jpg">`,
-			expected:  false,
+			name:      "缩略图与正文均缺",
+			thumbnail: "",
+			content:   `<p>纯文字内容</p>`,
+			expected:  repairNeeds{missingThumb: true, missingContentImg: true},
+		},
+		{
+			name:      "缩略图引用失效域名",
+			thumbnail: "https://image.08rj.com/dead.jpg",
+			content:   `<img src="https://img.08rj.com/b.jpg">`,
+			expected:  repairNeeds{brokenThumb: true},
+		},
+		{
+			name:      "正文 img 引用失效域名",
+			thumbnail: "https://img.08rj.com/a.jpg",
+			content:   `<img src="https://image.08rj.com/dead.jpg">`,
+			expected:  repairNeeds{brokenContent: true},
+		},
+		{
+			name:      "正文文本提及失效域名不算引用",
+			thumbnail: "https://img.08rj.com/a.jpg",
+			content:   `<p>原图床 image.08rj.com 已关闭</p><img src="https://img.08rj.com/b.jpg">`,
+			expected:  repairNeeds{},
+		},
+		{
+			name:      "空白缩略图视为缺失",
+			thumbnail: "   ",
+			content:   `<img src="https://img.08rj.com/b.jpg">`,
+			expected:  repairNeeds{missingThumb: true},
 		},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			item := articleFixture{thumbnail: c.thumbnail, content: c.content}.toArticle()
-			if got := needsRepair(item, testBrokenDomain); got != c.expected {
-				t.Fatalf("needsRepair = %v, want %v", got, c.expected)
+			got := inspectRepairNeeds(item, testBrokenDomain)
+			if got != c.expected {
+				t.Fatalf("inspectRepairNeeds = %+v, want %+v", got, c.expected)
 			}
 		})
+	}
+}
+
+// TestRepairNeedsActions 需求动作摘要
+func TestRepairNeedsActions(t *testing.T) {
+	if got := (repairNeeds{missingThumb: true, missingContentImg: true}).actions(); got != "thumb:restored,content:prepend" {
+		t.Fatalf("unexpected actions: %q", got)
+	}
+	if got := (repairNeeds{brokenContent: true}).actions(); got != "content:replaced" {
+		t.Fatalf("unexpected actions: %q", got)
+	}
+}
+
+// TestContentHasAnyImage 正文是否含任意图片
+func TestContentHasAnyImage(t *testing.T) {
+	if contentHasAnyImage(`<p>没有图片</p>`) {
+		t.Fatal("expected no image")
+	}
+	if !contentHasAnyImage(`<p>前文</p><img src="/upload/x.jpg">`) {
+		t.Fatal("expected image found (relative src counts)")
+	}
+	if contentHasAnyImage(`<img src="">`) {
+		t.Fatal("empty src should not count")
+	}
+}
+
+// TestPrependImage 图片插入正文最前面：原正文完整保留在后
+func TestPrependImage(t *testing.T) {
+	original := `<p>正文第一段</p><p>第二段</p>`
+	got := prependImage(original, "https://img.08rj.com/20260902/x.png")
+	if !strings.HasPrefix(got, `<p><img src="https://img.08rj.com/20260902/x.png" alt=""></p>`) {
+		t.Fatalf("image not at front:\n%s", got)
+	}
+	if !strings.HasSuffix(got, original) {
+		t.Fatalf("original content not preserved:\n%s", got)
+	}
+}
+
+// TestMarkImageRepairFailed 源页无图标记：写入一次、不重复写、可读取
+func TestMarkImageRepairFailed(t *testing.T) {
+	item := articleFixture{thumbnail: "", content: "<p>x</p>"}.toArticle()
+	if item.Extends.Get(markerImageRepairFailed) != nil {
+		t.Fatal("marker should not exist initially")
+	}
+	markImageRepairFailed(item)
+	markImageRepairFailed(item) // 重复标记不追加
+	if item.Extends.Get(markerImageRepairFailed) == nil {
+		t.Fatal("marker missing after mark")
+	}
+	if len(item.Extends) != 1 {
+		t.Fatalf("expected 1 extends item, got %d", len(item.Extends))
 	}
 }
 
