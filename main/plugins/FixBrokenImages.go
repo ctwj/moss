@@ -22,6 +22,7 @@ import (
 	"moss/domain/core/entity"
 	"moss/domain/core/repository"
 	pluginEntity "moss/domain/support/entity"
+	supportService "moss/domain/support/service"
 	"moss/infrastructure/persistent/storage"
 	"moss/infrastructure/support/cache"
 	"moss/infrastructure/support/upload"
@@ -46,6 +47,7 @@ type FixBrokenImages struct {
 	limiter       *rate.Limiter
 	downloadCache map[string]string // 源图URL -> 新图床URL（批次内去重）
 	cacheMu       sync.Mutex
+	sai           *SaveArticleImages // 已注册的 SaveArticleImages 实例（复用其图床 API 配置）
 }
 
 const (
@@ -167,17 +169,43 @@ func (p *FixBrokenImages) transferImage(imgURL, referer string) (string, error) 
 	if imageType == types.Unknown || err != nil {
 		return "", errors.New("downloaded file is not an image")
 	}
-	val := storage.NewSetValueBytes(file)
-	val.ContentType = imageType.MIME.Value
 	// 以源 URL 的 md5 作为文件名基准：同源稳定、同名即同图
-	res, err := upload.Upload(cryptor.Md5String(imgURL), imageType.Extension, val)
+	newURL, err := p.uploadToHost(cryptor.Md5String(imgURL), imageType.Extension, imageType.MIME.Value, file)
 	if err != nil {
 		return "", err
 	}
 
 	p.cacheMu.Lock()
-	p.downloadCache[imgURL] = res.URL
+	p.downloadCache[imgURL] = newURL
 	p.cacheMu.Unlock()
+	return newURL, nil
+}
+
+// resolveSaveArticleImages 解析已注册的 SaveArticleImages 插件实例（复用其图床 API 配置）
+func (p *FixBrokenImages) resolveSaveArticleImages() {
+	p.sai = nil
+	pl, err := supportService.Plugin.Get("SaveArticleImages")
+	if err != nil || pl == nil {
+		return
+	}
+	if sai, ok := pl.Entry.(*SaveArticleImages); ok {
+		p.sai = sai
+	}
+}
+
+// uploadToHost 上传图片到图床：
+//   - SaveArticleImages 启用 API 图床模式（upload_target=api 且配置了 api_upload_url）时，跟随其配置上传到同一图床；
+//   - 否则落到站点本地上传（Upload.Storage，URL 前缀为 Upload.Domain）。
+func (p *FixBrokenImages) uploadToHost(name, ext, mime string, file []byte) (string, error) {
+	if p.sai != nil && strings.EqualFold(strings.TrimSpace(p.sai.UploadTarget), "api") && strings.TrimSpace(p.sai.APIUploadURL) != "" {
+		return p.sai.uploadByAPI(name, ext, mime, file)
+	}
+	val := storage.NewSetValueBytes(file)
+	val.ContentType = mime
+	res, err := upload.Upload(name, ext, val)
+	if err != nil {
+		return "", err
+	}
 	return res.URL, nil
 }
 
@@ -551,6 +579,8 @@ func (p *FixBrokenImages) Run(ctx *pluginEntity.Plugin) error {
 	// 重置批次状态（限频器按当前选项重建，下载去重缓存按批次隔离）
 	p.limiter = nil
 	p.downloadCache = map[string]string{}
+	// 解析图床上传目标（跟随 SaveArticleImages 的 API 图床配置）
+	p.resolveSaveArticleImages()
 
 	ctx.Log.Info(fmt.Sprintf("repair start batch_size=%d broken_domain=%s", p.batchSize(), domain))
 
