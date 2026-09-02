@@ -21,7 +21,6 @@ import (
 	"moss/domain/config"
 	"moss/domain/core/entity"
 	"moss/domain/core/repository"
-	"moss/domain/core/vo"
 	pluginEntity "moss/domain/support/entity"
 	"moss/infrastructure/persistent/storage"
 	"moss/infrastructure/support/cache"
@@ -34,8 +33,6 @@ import (
 //  1. 缺图：文章无缩略图 / 正文无图片 → 访问历史数据源（源站页面）获取图片，
 //     恢复缩略图并将图片插入正文最前面，转存到当前上传图床（Upload.Domain）
 //  2. 失效引用：缩略图或正文 <img> 引用了失效图床域名 → 用源页图片替换
-//
-// 源页面上确实无图的文章会被标记（extends.image_repair_failed），后续批次跳过，避免无限重扫。
 type FixBrokenImages struct {
 	BrokenDomain        string `json:"broken_domain"`         // 失效图床域名（如 image.08rj.com，可选）
 	BatchSize           int    `json:"batch_size"`            // 单次执行处理的文章数量
@@ -44,7 +41,6 @@ type FixBrokenImages struct {
 	DownRetry           int    `json:"down_retry"`            // 下载失败重试次数
 	DownReferer         string `json:"down_referer"`          // 下载 referer（可选，留空使用源页面地址）
 	UserAgent           string `json:"user_agent"`            // 请求 UA（可选，留空使用默认）
-	RetryFailed         bool   `json:"retry_failed"`          // 重试已标记「源页无图」的文章
 
 	ctx           *pluginEntity.Plugin
 	limiter       *rate.Limiter
@@ -56,9 +52,6 @@ const (
 	repairStatusOK      = "ok"
 	repairStatusFail    = "fail"
 	repairStatusSkipped = "skipped"
-
-	// markerImageRepairFailed 源页面上找不到任何图片的标记（写入文章 extends，防无限重扫）
-	markerImageRepairFailed = "image_repair_failed"
 )
 
 // 缩略图候选选择器（og 优先，twitter 次之）
@@ -402,16 +395,6 @@ func prependImage(contentHTML, imageURL string) string {
 	return fmt.Sprintf(`<p><img src="%s" alt=""></p>`, imageURL) + contentHTML
 }
 
-// markImageRepairFailed 在文章 extends 中写入「源页无图」标记
-func markImageRepairFailed(item *entity.Article) {
-	if item.Extends.Get(markerImageRepairFailed) == nil {
-		item.Extends = append(item.Extends, vo.ExtendsItem{
-			Key:   markerImageRepairFailed,
-			Value: "1",
-		})
-	}
-}
-
 // ---- 执行 ----
 
 func (p *FixBrokenImages) logOne(msg string, item *entity.Article, fields ...zap.Field) {
@@ -428,19 +411,13 @@ func (p *FixBrokenImages) failOne(item *entity.Article, reason string) string {
 }
 
 // repairOne 修复单篇文章，返回 ok/fail/skipped。
-// 流程：需求判定 → 标记跳过 → 读历史数据源 → 抓源页 → 提取恢复图 →
+// 流程：需求判定 → 读历史数据源 → 抓源页 → 提取恢复图 →
 //
 //	缩略图恢复/替换 + 正文插首图 + 失效引用替换 → 写库 → 失效缓存。
-//	源页可达但确无任何图片时写入标记，后续批次跳过。
 func (p *FixBrokenImages) repairOne(item *entity.Article, domain string) string {
 	needs := inspectRepairNeeds(item, domain)
 	if !needs.any() {
 		p.logOne(fmt.Sprintf("repair skipped id=%d reason=no_broken_refs", item.ID), item)
-		return repairStatusSkipped
-	}
-	// 已标记「源页无图」的文章跳过，避免每次批次重复抓取（可用 retry_failed 选项重试）
-	if !p.RetryFailed && item.Extends.Get(markerImageRepairFailed) != nil {
-		p.logOne(fmt.Sprintf("repair skipped id=%d reason=marked_failed", item.ID), item)
 		return repairStatusSkipped
 	}
 
@@ -528,17 +505,8 @@ func (p *FixBrokenImages) repairOne(item *entity.Article, domain string) string 
 		newContent = contentPrefix + item.Content // 插首段落 + 原正文
 	}
 
-	// 7. 结果判定：无任何可写入的修复 → 记录原因；源页确无图则写标记防止无限重扫
+	// 7. 结果判定：无任何可写入的修复 → 记录原因
 	if newThumbnail == "" && newContent == "" {
-		if recovered == "" {
-			markImageRepairFailed(item)
-			if err := repository.Article.Update(item); err != nil {
-				p.logOne(fmt.Sprintf("repair fail id=%d reason=update_failed", item.ID), item, zap.Error(err))
-				return repairStatusFail
-			}
-			p.logOne(fmt.Sprintf("repair fail id=%d reason=no_valid_images marked=1", item.ID), item)
-			return repairStatusFail
-		}
 		return p.failOne(item, "no_valid_images")
 	}
 
@@ -574,7 +542,7 @@ func (p *FixBrokenImages) repairOne(item *entity.Article, domain string) string 
 }
 
 // Run 手动执行一批修复。候选：缺缩略图 / 正文无图 / 引用失效图床域名。
-// 已修复者自动脱离候选集；源页无图者被标记后跳过；可重复执行直至 summary 的 ok=fail=0。
+// 已修复者自动脱离候选集；可重复执行直至 summary 的 ok=fail=0。
 func (p *FixBrokenImages) Run(ctx *pluginEntity.Plugin) error {
 	if p.ctx == nil {
 		p.ctx = ctx
@@ -584,7 +552,7 @@ func (p *FixBrokenImages) Run(ctx *pluginEntity.Plugin) error {
 	p.limiter = nil
 	p.downloadCache = map[string]string{}
 
-	ctx.Log.Info(fmt.Sprintf("repair start batch_size=%d broken_domain=%s retry_failed=%v", p.batchSize(), domain, p.RetryFailed))
+	ctx.Log.Info(fmt.Sprintf("repair start batch_size=%d broken_domain=%s", p.batchSize(), domain))
 
 	articles, err := repository.Article.ListArticlesNeedImageRepair(domain, p.batchSize())
 	if err != nil {

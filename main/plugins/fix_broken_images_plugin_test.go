@@ -324,22 +324,6 @@ func TestPrependImage(t *testing.T) {
 	}
 }
 
-// TestMarkImageRepairFailed 源页无图标记：写入一次、不重复写、可读取
-func TestMarkImageRepairFailed(t *testing.T) {
-	item := articleFixture{thumbnail: "", content: "<p>x</p>"}.toArticle()
-	if item.Extends.Get(markerImageRepairFailed) != nil {
-		t.Fatal("marker should not exist initially")
-	}
-	markImageRepairFailed(item)
-	markImageRepairFailed(item) // 重复标记不追加
-	if item.Extends.Get(markerImageRepairFailed) == nil {
-		t.Fatal("marker missing after mark")
-	}
-	if len(item.Extends) != 1 {
-		t.Fatalf("expected 1 extends item, got %d", len(item.Extends))
-	}
-}
-
 // ---- 测试辅助 ----
 
 func mustParseURL(t *testing.T, raw string) *url.URL {
