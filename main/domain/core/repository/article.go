@@ -1,6 +1,8 @@
 package repository
 
 import (
+	"strings"
+
 	"moss/domain/config"
 	"moss/domain/core/entity"
 	"moss/domain/core/repository/context"
@@ -370,6 +372,71 @@ func (r *ArticleRepo) ListArticlesNeedImageRepair(domain string, limit int) (res
 			Where(where, args...)
 
 		// 按ID升序排列，获取指定数量
+		var articleBases []entity.ArticleBase
+		var articleDetails []entity.ArticleDetail
+
+		if err := query.Order("article.id ASC").Limit(limit).Find(&articleBases).Error; err != nil {
+			return err
+		}
+
+		if len(articleBases) == 0 {
+			return nil
+		}
+
+		// 收集文章ID
+		articleIDs := make([]int, len(articleBases))
+		for i, base := range articleBases {
+			articleIDs[i] = base.ID
+		}
+
+		// 查询详情
+		if err := tx.Model(&entity.ArticleDetail{}).
+			Where("article_id IN ?", articleIDs).
+			Find(&articleDetails).Error; err != nil {
+			return err
+		}
+
+		// 组装结果
+		detailMap := make(map[int]entity.ArticleDetail)
+		for _, detail := range articleDetails {
+			detailMap[detail.ArticleID] = detail
+		}
+
+		res = make([]*entity.Article, len(articleBases))
+		for i, base := range articleBases {
+			article := &entity.Article{ArticleBase: base}
+			if detail, ok := detailMap[base.ID]; ok {
+				article.ArticleDetail = detail
+			}
+			res[i] = article
+		}
+
+		return nil
+	})
+	return
+}
+
+// placeholderTitles 标题占位文本粗筛集合（跨库兼容；Go 侧校验器为最终裁决）
+var placeholderTitles = []string{"...", "…", "。。。", "....", "..", ". . ."}
+
+// ListArticlesWithPlaceholderTitle 获取标题为 "..." 类占位文本的文章列表（修复 "..." 标题与正文特性）。
+// 镜像 ListArticlesNeedImageRepair 的 JOIN 组装写法；不筛发布状态；按 ID 升序取 limit 篇。
+func (r *ArticleRepo) ListArticlesWithPlaceholderTitle(limit int) (res []*entity.Article, err error) {
+	if limit <= 0 {
+		limit = 1000
+	}
+
+	err = db.DB.Transaction(func(tx *gorm.DB) error {
+		// 标题占位粗筛（LOWER(TRIM(...)) IN 集合，SQLite/MySQL/PostgreSQL 通用）
+		placeholders := make([]string, len(placeholderTitles))
+		for i, p := range placeholderTitles {
+			placeholders[i] = strings.ToLower(strings.TrimSpace(p))
+		}
+		query := tx.Model(&entity.ArticleBase{}).
+			Select("article.*, article_detail.*").
+			Joins("LEFT JOIN article_detail ON article.id = article_detail.article_id").
+			Where("LOWER(TRIM(article.title)) IN ?", placeholders)
+
 		var articleBases []entity.ArticleBase
 		var articleDetails []entity.ArticleDetail
 

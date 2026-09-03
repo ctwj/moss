@@ -127,8 +127,9 @@ The admin panel uses Vue 3 with Vite:
 <!-- SPECKIT START -->
 ## Active Spec Kit Feature
 
-- **Feature**: 修复失效图床图片 — `specs/002-fix-broken-images/`
-- **Active plan**: `specs/002-fix-broken-images/plan.md`
-- Artifacts: `spec.md` · `research.md` · `data-model.md` · `contracts/api.md` · `quickstart.md` · `checklists/requirements.md`
-- Next: `/speckit-tasks` (生成任务) → `/speckit-implement` (执行)
+- **Feature**: 修复 "..." 标题与正文文章 — `specs/003-fix-ellipsis-titles/`
+- **Active plan**: `specs/003-fix-ellipsis-titles/plan.md`
+- Artifacts: `spec.md` · `plan.md` · `research.md` · `data-model.md` · `contracts/api.md` · `quickstart.md` · `tasks.md` · `checklists/requirements.md`
+- Status: 已实现并通过本地端到端验证（T001-T013、T015、T016 完成；T014 的 AI 注入验证待测试环境手动执行）
+- Next: 部署到真实环境按 `quickstart.md` §7 执行修复（已知 12 篇：8350/8291/8278/8271/8267/8138/8054/8019/7990/7830/7765/7728）
 <!-- SPECKIT END -->

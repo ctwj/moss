@@ -252,6 +252,13 @@ func (g *GnDownSpider) fetchArticle(articleURL string) (*entity.Article, error) 
 	if title == "" {
 		return nil, errors.New("无法提取文章标题")
 	}
+	// 写回防线：占位标题（如 "..."）不建文（FR-5）
+	if !IsValidArticleTitle(title) {
+		g.ctx.Log.Warn("spider rejected invalid title",
+			zap.String("title_preview", truncateText(title, 80)),
+			zap.String("url", articleURL))
+		return nil, errors.New("无效文章标题(占位文本)")
+	}
 	article.Title = title
 
 	// 提取slug（gndown + 标题 hash）

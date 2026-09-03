@@ -750,11 +750,16 @@ func (p *AISeoPlugin) generateSEOContent(article *entity.Article) (*AISeoResult,
 		if err != nil {
 			p.ctx.Log.Warn("Failed to optimize title", zap.Error(err))
 		} else if title != "" {
-			result.Title = title
-			p.ctx.Log.Info("Title optimized",
-				zap.Int("article_id", article.ID),
-				zap.String("old_title", article.Title),
-				zap.String("new_title", title))
+			// 写回防线：占位/无效标题（如 "..."）不采纳（FR-5）
+			if !IsValidArticleTitle(title) {
+				p.rejectWriteback("title", article.ID, title)
+			} else {
+				result.Title = title
+				p.ctx.Log.Info("Title optimized",
+					zap.Int("article_id", article.ID),
+					zap.String("old_title", article.Title),
+					zap.String("new_title", title))
+			}
 		}
 	}
 
@@ -810,10 +815,15 @@ func (p *AISeoPlugin) generateSEOContent(article *entity.Article) (*AISeoResult,
 		if err != nil {
 			p.ctx.Log.Warn("Failed to rewrite content", zap.Error(err))
 		} else if content != "" {
-			article.Content = content
-			result.ContentRewrited = true
-			p.ctx.Log.Info("Content rewritten",
-				zap.Int("article_id", article.ID))
+			// 写回防线：占位/无效正文不覆盖（FR-5）
+			if !IsValidArticleContent(content) {
+				p.rejectWriteback("content", article.ID, content)
+			} else {
+				article.Content = content
+				result.ContentRewrited = true
+				p.ctx.Log.Info("Content rewritten",
+					zap.Int("article_id", article.ID))
+			}
 		}
 	}
 
@@ -1310,16 +1320,21 @@ func (p *AISeoPlugin) generateSEOContentIntegrated(article *entity.Article, apiC
 
 	// 处理标题
 	if p.EnableTitleOptimize && integratedResp.Title != "" {
-		// 标题长度限制
-		runes := []rune(integratedResp.Title)
-		if len(runes) > 60 {
-			integratedResp.Title = string(runes[:60])
+		// 写回防线：占位/无效标题不采纳（FR-5）
+		if !IsValidArticleTitle(integratedResp.Title) {
+			p.rejectWriteback("title", article.ID, integratedResp.Title)
+		} else {
+			// 标题长度限制
+			runes := []rune(integratedResp.Title)
+			if len(runes) > 60 {
+				integratedResp.Title = string(runes[:60])
+			}
+			result.Title = integratedResp.Title
+			p.ctx.Log.Info("Title optimized (integrated)",
+				zap.Int("article_id", article.ID),
+				zap.String("old_title", article.Title),
+				zap.String("new_title", result.Title))
 		}
-		result.Title = integratedResp.Title
-		p.ctx.Log.Info("Title optimized (integrated)",
-			zap.Int("article_id", article.ID),
-			zap.String("old_title", article.Title),
-			zap.String("new_title", result.Title))
 	}
 
 	// 处理分类
@@ -1372,11 +1387,16 @@ func (p *AISeoPlugin) generateSEOContentIntegrated(article *entity.Article, apiC
 
 	// 处理内容改写
 	if p.EnableRewrite && integratedResp.Content != "" {
-		article.Content = integratedResp.Content
-		result.ContentRewrited = true
-		p.ctx.Log.Info("Content rewritten (integrated)",
-			zap.Int("article_id", article.ID),
-			zap.Int("new_content_length", len(integratedResp.Content)))
+		// 写回防线：占位/无效正文不覆盖（FR-5）
+		if !IsValidArticleContent(integratedResp.Content) {
+			p.rejectWriteback("content", article.ID, integratedResp.Content)
+		} else {
+			article.Content = integratedResp.Content
+			result.ContentRewrited = true
+			p.ctx.Log.Info("Content rewritten (integrated)",
+				zap.Int("article_id", article.ID),
+				zap.Int("new_content_length", len(integratedResp.Content)))
+		}
 	}
 
 	// 处理标签
@@ -1500,10 +1520,15 @@ func (p *AISeoPlugin) generateSEOContentWithAPI(article *entity.Article, apiCfg 
 		if err != nil {
 			p.ctx.Log.Warn("Failed to rewrite content", zap.Error(err))
 		} else if content != "" {
-			article.Content = content
-			result.ContentRewrited = true
-			p.ctx.Log.Info("Content rewritten",
-				zap.Int("article_id", article.ID))
+			// 写回防线：占位/无效正文不覆盖（FR-5）
+			if !IsValidArticleContent(content) {
+				p.rejectWriteback("content", article.ID, content)
+			} else {
+				article.Content = content
+				result.ContentRewrited = true
+				p.ctx.Log.Info("Content rewritten",
+					zap.Int("article_id", article.ID))
+			}
 		}
 	}
 
@@ -2863,12 +2888,17 @@ func (p *AISeoPlugin) updateArticle(article *entity.Article, result *AISeoResult
 
 	// 更新标题
 	if result.Title != "" && result.Title != article.Title {
-		oldTitle := article.Title
-		article.Title = result.Title
-		p.ctx.Log.Info("Title updated",
-			zap.Int("article_id", article.ID),
-			zap.String("old_title", oldTitle),
-			zap.String("new_title", article.Title))
+		// 写回防线：占位/无效标题不覆盖（FR-5，最终 apply 处兜底）
+		if !IsValidArticleTitle(result.Title) {
+			p.rejectWriteback("title", article.ID, result.Title)
+		} else {
+			oldTitle := article.Title
+			article.Title = result.Title
+			p.ctx.Log.Info("Title updated",
+				zap.Int("article_id", article.ID),
+				zap.String("old_title", oldTitle),
+				zap.String("new_title", article.Title))
+		}
 	}
 
 	// 更新分类
@@ -2959,6 +2989,17 @@ func (p *AISeoPlugin) markAsGenerated(article *entity.Article) {
 }
 
 // truncateText 截断文本
+// rejectWriteback 写回防线拦截日志（FR-5）：记录被拒绝的无效标题/正文，原值保留
+func (p *AISeoPlugin) rejectWriteback(field string, articleID int, value string) {
+	if p.ctx == nil || p.ctx.Log == nil {
+		return
+	}
+	p.ctx.Log.Warn("writeback rejected",
+		zap.String("field", field),
+		zap.Int("article_id", articleID),
+		zap.String("preview", truncateText(value, 80)))
+}
+
 func truncateText(text string, maxLen int) string {
 	if len(text) <= maxLen {
 		return text

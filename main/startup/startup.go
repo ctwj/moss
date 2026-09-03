@@ -60,6 +60,7 @@ func initPlugins() {
 		plugins.NewExternalLinkPlugin(),
 		plugins.NewDirectLinkDownload(),
 		plugins.NewFixBrokenImages(),
+		plugins.NewFixEllipsisArticles(),
 	)
 
 }
